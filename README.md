@@ -10,8 +10,9 @@ A high-performance CUDA-accelerated Machine Learning library with automatic CPU 
 - **Multiple SVM Types**: Classification (C-SVC, Nu-SVC) and Regression (Epsilon-SVR, Nu-SVR)
 - **Multiple Kernel Functions**: Linear, RBF, Polynomial, and Sigmoid kernels
 - **Advanced Algorithms**: SMO (Sequential Minimal Optimization) algorithm implementation
+- **FlashAttention**: Memory-efficient O(N) attention mechanism for transformer models with full training support
 - **Memory Optimization**: Efficient GPU memory management with pooling
-- **Easy Integration**: Scikit-learn compatible API
+- **Easy Integration**: Scikit-learn compatible API and PyTorch integration
 
 ## 📋 System Requirements
 
@@ -108,6 +109,34 @@ predictions = svr.predict(X_test)
 print(f"R² Score: {r2_score(y_test, predictions)}")
 ```
 
+### FlashAttention Example
+
+```python
+import torch
+from flash_attention import FlashAttention
+
+# Initialize FlashAttention module
+attn = FlashAttention(head_dim=64)
+
+# Create input tensors (batch_size, num_heads, seq_len, head_dim)
+Q = torch.randn(2, 8, 512, 64, device='cuda', requires_grad=True)
+K = torch.randn(2, 8, 512, 64, device='cuda', requires_grad=True)
+V = torch.randn(2, 8, 512, 64, device='cuda', requires_grad=True)
+
+# Forward pass with automatic gradient support
+output = attn(Q, K, V)
+
+# Use in training with any optimizer
+optimizer = torch.optim.Adam(attn.parameters())
+optimizer.zero_grad()
+loss = output.sum()
+loss.backward()  # Gradients computed automatically!
+optimizer.step()
+
+print(f"Output shape: {output.shape}")  # [2, 8, 512, 64]
+print(f"Memory efficient: O(N) instead of O(N²)")
+```
+
 ## 📚 API Reference
 
 ### CudaSVC (Classification)
@@ -144,6 +173,28 @@ CudaSVR(
     max_iter=1000          # Maximum iterations
 )
 ```
+
+### FlashAttention
+
+```python
+FlashAttention(
+    head_dim=64             # Dimension of each attention head (currently fixed at 64)
+)
+
+# Functional interface (inference only)
+flash_attention(
+    Q,                      # Query tensor: [batch, heads, seq_len, head_dim]
+    K,                      # Key tensor: [batch, heads, seq_len, head_dim]
+    V                       # Value tensor: [batch, heads, seq_len, head_dim]
+)
+```
+
+**Key Features:**
+- O(N) memory complexity instead of O(N²)
+- Full gradient support for training
+- PyTorch integration with `.backward()`
+- Numerical accuracy < 1e-6 vs standard attention
+- Works with all PyTorch optimizers (Adam, SGD, etc.)
 
 ## 🔧 Advanced Usage
 
@@ -182,8 +233,9 @@ svc_sigmoid = CudaSVC(kernel='sigmoid', gamma='scale', coef0=0.0)
 
 - **SVM**: Fully functional and ready for production use
 - **RF**: Fully functional and ready for production use
+- **FlashAttention**: Fully functional for training and inference (head_dim=64, FP32 only)
 
-**Please use the standard SVM implementation for all production workloads.**
+**Note**: For production transformer workloads with advanced features (FP16, variable head dimensions, attention masks), consider using the official [FlashAttention](https://github.com/Dao-AILab/flash-attention) implementation. This implementation is ideal for learning, prototyping, and small-scale training.
 
 ### Performance Tips
 
@@ -210,7 +262,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - **Repository**: [https://github.com/dino65-dev/Cuda_ML_Library](https://github.com/dino65-dev/Cuda_ML_Library)
 - **Issues**: [https://github.com/dino65-dev/Cuda_ML_Library/issues](https://github.com/dino65-dev/Cuda_ML_Library/issues)
-- **Documentation**: [Usage Examples](./Usage/)
+- **Documentation**: 
+  - [SVM Usage Examples](./Usage/SVM/)
+  - [Random Forest Usage Examples](./Usage/Random_forest/)
+  - [FlashAttention Documentation](./flash_attention/USAGE.md)
 
 ## 📊 Version
 
