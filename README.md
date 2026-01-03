@@ -260,7 +260,7 @@ We welcome contributions from the community! Whether you're fixing bugs, adding 
 
 1. **Fork the repository**
    ```bash
-   git clone https://github.com/YOUR_USERNAME/Cuda_ML_Library.git
+   git clone https://github.com/dino65-dev/Cuda_ML_Library.git
    cd Cuda_ML_Library
    ```
 
