@@ -246,13 +246,114 @@ svc_sigmoid = CudaSVC(kernel='sigmoid', gamma='scale', coef0=0.0)
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please feel free to submit issues, feature requests, or pull requests.
+We welcome contributions from the community! Whether you're fixing bugs, adding new features, improving documentation, or optimizing performance, your help is appreciated.
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+### Ways to Contribute
+
+- **Bug Reports**: Found a bug? [Open an issue](https://github.com/dino65-dev/Cuda_ML_Library/issues) with detailed reproduction steps
+- **Feature Requests**: Have an idea? Share it through [GitHub Issues](https://github.com/dino65-dev/Cuda_ML_Library/issues)
+- **Code Contributions**: Submit pull requests for bug fixes, new features, or optimizations
+- **Documentation**: Help improve our docs, add examples, or fix typos
+- **Testing**: Add test cases or report compatibility issues with different hardware/software configurations
+
+### Getting Started
+
+1. **Fork the repository**
+   ```bash
+   git clone https://github.com/YOUR_USERNAME/Cuda_ML_Library.git
+   cd Cuda_ML_Library
+   ```
+
+2. **Set up your development environment**
+   ```bash
+   # Install dependencies
+   pip install numpy scikit-learn torch
+   
+   # Build the project
+   cd SVM && make clean && make && cd ..
+   cd RandomForest && make clean && make && cd ..
+   cd flash_attention && ./install.sh && cd ..
+   ```
+
+3. **Create a feature branch**
+   ```bash
+   git checkout -b feature/amazing-feature
+   ```
+
+4. **Make your changes**
+   - Write clean, readable code
+   - Follow existing code style and conventions
+   - Add comments for complex logic
+   - Update documentation as needed
+
+5. **Test your changes**
+   ```bash
+   # Run tests for the component you modified
+   python -m pytest tests/
+   
+   # For CUDA components, test on both GPU and CPU
+   python usage_example.py
+   ```
+
+6. **Commit your changes**
+   ```bash
+   git add .
+   git commit -m "Add: Brief description of your changes"
+   ```
+   
+   **Commit Message Format:**
+   - `Add:` for new features
+   - `Fix:` for bug fixes
+   - `Update:` for improvements to existing features
+   - `Docs:` for documentation changes
+   - `Refactor:` for code refactoring
+
+7. **Push to your fork**
+   ```bash
+   git push origin feature/amazing-feature
+   ```
+
+8. **Open a Pull Request**
+   - Go to the [original repository](https://github.com/dino65-dev/Cuda_ML_Library)
+   - Click "New Pull Request"
+   - Provide a clear description of your changes
+   - Reference any related issues
+
+### Development Guidelines
+
+- **Code Quality**: Write clean, maintainable code with proper error handling
+- **Performance**: Ensure CUDA code is optimized and memory-efficient
+- **Compatibility**: Test on multiple GPU architectures when possible
+- **Documentation**: Update README and inline comments for new features
+- **Backward Compatibility**: Avoid breaking existing APIs unless necessary
+
+### Areas for Contribution
+
+We especially welcome contributions in these areas:
+
+- **Performance Optimization**: Improve CUDA kernel efficiency
+- **Hardware Support**: Test and optimize for more GPU architectures
+- **New Algorithms**: Implement additional ML algorithms with CUDA acceleration
+- **FP16/BF16 Support**: Add mixed-precision training capabilities
+- **Distributed Training**: Multi-GPU support and distributed computing
+- **Documentation**: More examples, tutorials, and API documentation
+- **Testing**: Expand test coverage and add benchmarks
+
+### Code of Conduct
+
+- Be respectful and inclusive
+- Provide constructive feedback
+- Focus on collaboration and learning
+- Help others who are contributing
+
+### Questions?
+
+If you have questions about contributing, feel free to:
+- Open a [GitHub Discussion](https://github.com/dino65-dev/Cuda_ML_Library/discussions)
+- Comment on an existing issue
+- Reach out to the maintainers
+
+Thank you for making CUDA ML Library better! 🎉
 
 ## 📄 License
 
