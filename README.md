@@ -370,7 +370,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📊 Version
 
-Current Version: **0.1.0**
+Current Version: **1.0.1**
 
 ---
 
