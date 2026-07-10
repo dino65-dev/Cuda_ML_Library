@@ -1,6 +1,6 @@
 # CUDA ML Library [![zread](https://img.shields.io/badge/Ask_Zread-_.svg?style=plastic&color=00b0aa&labelColor=000000&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTQuOTYxNTYgMS42MDAxSDIuMjQxNTZDMS44ODgxIDEuNjAwMSAxLjYwMTU2IDEuODg2NjQgMS42MDE1NiAyLjI0MDFWNC45NjAxQzEuNjAxNTYgNS4zMTM1NiAxLjg4ODEgNS42MDAxIDIuMjQxNTYgNS42MDAxSDQuOTYxNTZDNS4zMTUwMiA1LjYwMDEgNS42MDE1NiA1LjMxMzU2IDUuNjAxNTYgNC45NjAxVjIuMjQwMUM1LjYwMTU2IDEuODg2NjQgNS4zMTUwMiAxLjYwMDEgNC45NjE1NiAxLjYwMDFaIiBmaWxsPSIjZmZmIi8%2BCjxwYXRoIGQ9Ik00Ljk2MTU2IDEwLjM5OTlIMi4yNDE1NkMxLjg4ODEgMTAuMzk5OSAxLjYwMTU2IDEwLjY4NjQgMS42MDE1NiAxMS4wMzk5VjEzLjc1OTlDMS42MDE1NiAxNC4xMTM0IDEuODg4MSAxNC4zOTk5IDIuMjQxNTYgMTQuMzk5OUg0Ljk2MTU2QzUuMzE1MDIgMTQuMzk5OSA1LjYwMTU2IDE0LjExMzQgNS42MDE1NiAxMy43NTk5VjExLjAzOTlDNS42MDE1NiAxMC42ODY0IDUuMzE1MDIgMTAuMzk5OSA0Ljk2MTU2IDEwLjM5OTlaIiBmaWxsPSIjZmZmIi8%2BCjxwYXRoIGQ9Ik0xMy43NTg0IDEuNjAwMUgxMS4wMzg0QzEwLjY4NSAxLjYwMDEgMTAuMzk4NCAxLjg4NjY0IDEwLjM5ODQgMi4yNDAxVjQuOTYwMUMxMC4zOTg0IDUuMzEzNTYgMTAuNjg1IDUuNjAwMSAxMS4wMzg0IDUuNjAwMUgxMy43NTg0QzE0LjExMTkgNS42MDAxIDE0LjM5ODQgNS4zMTM1NiAxNC4zOTg0IDQuOTYwMVYyLjI0MDFDMTQuMzk4NCAxLjg4NjY0IDE0LjExMTkgMS42MDAxIDEzLjc1ODQgMS42MDAxWiIgZmlsbD0iI2ZmZiIvPgo8cGF0aCBkPSJNNCAxMkwxMiA0TDQgMTJaIiBmaWxsPSIjZmZmIi8%2BCjxwYXRoIGQ9Ik00IDEyTDEyIDQiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIxLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgo8L3N2Zz4K&logoColor=ffffff)](https://zread.ai/dino65-dev/Cuda_ML_Library.git)
 
-A high-performance CUDA-accelerated Machine Learning library with automatic CPU fallback support, featuring optimized Support Vector Machine implementations for both classification and regression tasks.
+A high-performance CUDA-accelerated machine-learning kernel library with Python integration and CPU/PyTorch fallbacks.
 
 ## 🚀 Features
 
@@ -11,6 +11,7 @@ A high-performance CUDA-accelerated Machine Learning library with automatic CPU 
 - **Multiple Kernel Functions**: Linear, RBF, Polynomial, and Sigmoid kernels
 - **Advanced Algorithms**: SMO (Sequential Minimal Optimization) algorithm implementation
 - **FlashAttention**: Memory-efficient O(N) attention mechanism for transformer models with full training support
+- **DeepSeek DSpark**: Fused low-rank Markov logits and confidence-scheduled speculative verification
 - **Memory Optimization**: Efficient GPU memory management with pooling
 - **Easy Integration**: Scikit-learn compatible API and PyTorch integration
 
@@ -24,7 +25,7 @@ A high-performance CUDA-accelerated Machine Learning library with automatic CPU 
 ### Software Requirements
 - **CUDA Toolkit** (Optional): Version 12.0+ for GPU acceleration
 - **Python**: 3.8+
-- **Dependencies**: numpy ≥1.19.0, scikit-learn ≥1.0.0
+- **Dependencies**: numpy ≥1.19.0, scikit-learn ≥1.0.0; PyTorch ≥2.1 for DSpark
 
 ### Supported Environments
 - **GPU-Accelerated**: Systems with CUDA-capable NVIDIA GPUs
@@ -58,6 +59,13 @@ make
 # Install the package
 cd ..
 pip install -e .
+```
+
+Build the optional DSpark PyTorch extension separately:
+
+```bash
+cd DSpark
+./install.sh
 ```
 
 The build process will:
@@ -137,6 +145,38 @@ print(f"Output shape: {output.shape}")  # [2, 8, 512, 64]
 print(f"Memory efficient: O(N) instead of O(N²)")
 ```
 
+### DeepSeek DSpark Example
+
+```python
+import torch
+from DSpark import DSparkMarkovHead, DSparkScheduler
+
+requests, proposal_length = 128, 7
+vocab_size, rank = 32_000, 256
+
+head = DSparkMarkovHead(vocab_size, rank).cuda().eval()
+scheduler = DSparkScheduler(proposal_length).cuda()
+
+base_logits = torch.randn(requests, vocab_size, device="cuda", dtype=torch.float16)
+previous_ids = torch.randint(vocab_size, (requests,), device="cuda")
+confidence_logits = torch.randn(
+    requests, proposal_length, device="cuda", dtype=torch.float16
+)
+
+max_batch = requests * (proposal_length + 1)
+batch_tokens = torch.arange(max_batch + 1, device="cuda")
+step_curve = 1_000.0 / (1.0 + batch_tokens / 256.0)
+
+with torch.inference_mode():
+    corrected_logits = head(base_logits, previous_ids)
+    decision = scheduler(confidence_logits, step_curve)
+
+verification_lengths = decision.lengths
+```
+
+See the [DSpark CUDA documentation](./DSpark/README.md) for the kernel design,
+DeepSpec weight import, step-curve contract, tests, and GPU benchmark.
+
 ## 📚 API Reference
 
 ### CudaSVC (Classification)
@@ -196,6 +236,19 @@ flash_attention(
 - Numerical accuracy < 1e-6 vs standard attention
 - Works with all PyTorch optimizers (Adam, SGD, etc.)
 
+### DSpark
+
+```python
+DSparkMarkovHead(vocab_size, rank=256)
+DSparkScheduler(proposal_length=7, temperatures=None)
+```
+
+- FP32, FP16, and BF16 inference kernels
+- Warp-level calibrated prefix products and CUB candidate ranking
+- Paper-compatible first-throughput-drop admission rule
+- No host synchronization on the CUDA scheduling path
+- Native PyTorch fallback for CPU execution and Markov-head autograd
+
 ## 🔧 Advanced Usage
 
 ### Hardware Detection
@@ -234,6 +287,7 @@ svc_sigmoid = CudaSVC(kernel='sigmoid', gamma='scale', coef0=0.0)
 - **SVM**: Fully functional and ready for production use
 - **RF**: Fully functional and ready for production use
 - **FlashAttention**: Fully functional for training and inference (head_dim=64, FP32 only)
+- **DSpark**: CUDA inference primitives plus exact PyTorch fallback; integrate with a trained DSpark drafter
 
 **Note**: For production transformer workloads with advanced features (FP16, variable head dimensions, attention masks), consider using the official [FlashAttention](https://github.com/Dao-AILab/flash-attention) implementation. This implementation is ideal for learning, prototyping, and small-scale training.
 
@@ -367,6 +421,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
   - [SVM Usage Examples](./Usage/SVM/)
   - [Random Forest Usage Examples](./Usage/Random_forest/)
   - [FlashAttention Documentation](./flash_attention/USAGE.md)
+  - [DSpark CUDA Documentation](./DSpark/README.md)
 
 ## 📊 Version
 

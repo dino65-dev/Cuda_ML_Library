@@ -19,6 +19,14 @@ include HBM_SVM/*.cpp
 # Include build and test scripts
 include HBM_SVM/build_and_test.sh
 
+# Include the DSpark PyTorch/CUDA extension and documentation
+recursive-include DSpark *.py
+recursive-include DSpark *.cpp
+recursive-include DSpark *.cu
+recursive-include DSpark *.h
+recursive-include DSpark *.md
+include DSpark/install.sh
+
 # Include usage examples and documentation
 recursive-include Usage *.py
 recursive-include Usage *.md

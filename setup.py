@@ -42,7 +42,10 @@ extras_require = {
         'matplotlib>=3.0.0',
         'seaborn>=0.11.0',
         'jupyter>=1.0.0',
-    ]
+    ],
+    'dspark': [
+        'torch>=2.1.0',
+    ],
 }
 
 setup(
@@ -63,6 +66,7 @@ setup(
     package_data={
         'SVM': ['*.py'],
         'HBM_SVM': ['*.py'],
+        'DSpark': ['*.py', 'README.md'],
         'Usage': ['**/*.py', '**/*.md'],
     },
     include_package_data=True,
