@@ -31,6 +31,7 @@ dependencies = [
 cuda = ["cupy-cuda12x>=12.0.0"]
 dev = ["pytest>=6.0", "pytest-cov", "black", "flake8"]
 examples = ["matplotlib>=3.0.0", "jupyter>=1.0.0"]
+dspark = ["torch>=2.1.0"]
 
 [project.urls]
 Homepage = "https://github.com/dino65-dev/Cuda-ML-Library"
