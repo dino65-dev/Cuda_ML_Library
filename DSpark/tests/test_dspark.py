@@ -7,6 +7,7 @@ from DSpark import (
     DSparkMarkovHead,
     cuda_extension_available,
     markov_logits,
+    markov_logits_raw_cuda,
     schedule,
 )
 from DSpark.reference import markov_logits_reference, schedule_reference
@@ -112,23 +113,31 @@ def test_cuda_matches_reference(dtype: torch.dtype) -> None:
     projection_t = torch.randn(16, 257, device=device, dtype=dtype)
     with torch.inference_mode():
         actual = markov_logits(base, ids, embedding, projection_t)
+        raw = markov_logits_raw_cuda(base, ids, embedding, projection_t)
         expected = markov_logits_reference(base, ids, embedding, projection_t)
     tolerance = 2e-2 if dtype == torch.float16 else 2e-5
     torch.testing.assert_close(actual, expected, atol=tolerance, rtol=tolerance)
+    torch.testing.assert_close(raw, expected, atol=tolerance, rtol=tolerance)
 
-    confidence = torch.randn(17, 7, device=device, dtype=dtype)
-    temperatures = torch.ones(7, device=device)
-    curve = torch.ones(17 * 8 + 1, device=device)
-    actual_schedule = schedule(confidence, curve, temperatures)
-    expected_schedule = schedule_reference(confidence, curve, temperatures)
-    torch.testing.assert_close(
-        actual_schedule.survival,
-        expected_schedule.survival,
-        atol=2e-3,
-        rtol=2e-3,
-    )
-    torch.testing.assert_close(actual_schedule.lengths, expected_schedule.lengths)
-    torch.testing.assert_close(
-        actual_schedule.selected_count,
-        expected_schedule.selected_count,
-    )
+    # Exercise a small fused CTA, the exact 128x7 benchmark shape, and the
+    # >1024-candidate CUB fallback.
+    for requests in (17, 128, 160):
+        confidence = torch.randn(requests, 7, device=device, dtype=dtype)
+        temperatures = torch.ones(7, device=device)
+        curve = torch.ones(requests * 8 + 1, device=device)
+        actual_schedule = schedule(confidence, curve, temperatures)
+        expected_schedule = schedule_reference(confidence, curve, temperatures)
+        torch.testing.assert_close(
+            actual_schedule.survival,
+            expected_schedule.survival,
+            atol=2e-3,
+            rtol=2e-3,
+        )
+        torch.testing.assert_close(
+            actual_schedule.lengths,
+            expected_schedule.lengths,
+        )
+        torch.testing.assert_close(
+            actual_schedule.selected_count,
+            expected_schedule.selected_count,
+        )

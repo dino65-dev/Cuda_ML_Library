@@ -27,12 +27,20 @@ For previous token `x`, the default head computes
 corrected_logits = base_logits + W2 @ W1[x]
 ```
 
-The CUDA implementation stores `W2.T` as `[rank, vocab]`, stages `W1[x]` in
-shared memory, computes four coalesced vocabulary stripes per CTA, accumulates
-with register FMAs, and fuses the final base-logit addition. It does not
-allocate the intermediate vocabulary-sized Markov bias. The specialized path
-is intended for latency-sensitive decode microbatches; training automatically
-uses native PyTorch so autograd remains exact.
+The optimized CUDA path stores `W2.T` as `[rank, vocab]`, gathers all `W1[x]`
+rows, and submits one dense `addmm` update to cuBLAS:
+
+```text
+output = 1 * (latent @ W2.T) + 1 * base_logits
+```
+
+This reuses projection tiles across requests, enables Tensor Cores for aligned
+FP16/BF16 shapes, and folds the base-logit addition into the GEMM update. The
+original scalar CUDA kernel remains available as `markov_logits_raw_cuda` for
+research comparisons, but it is not the production default: treating a batch
+as independent GEMVs rereads the projection matrix once per request and loses
+Tensor Core throughput. During autograd the API uses native PyTorch operations
+so parameter gradients remain exact.
 
 ### Confidence scheduler
 
@@ -42,17 +50,21 @@ Given conditional acceptance estimates `c[r, k]`, calibrated prefix survival is
 p[r, k] = product(sigmoid(logit[r, j] / temperature[j]), j=0..k)
 ```
 
-The extension uses:
+For up to 1024 candidates, the extension uses:
 
-- one warp per request and shuffle-based prefix products;
-- a 64-bit key whose low word enforces prefix order on exact ties;
-- CUB device radix sort and inclusive scan on the current PyTorch stream;
-- a parallel first-throughput-drop search matching DSpark Algorithm 1; and
-- device-side schedule scatter/finalization with no host synchronization.
+- one fused CUDA launch for survival construction, sorting, admission, and
+  scatter;
+- a shared-memory bitonic network with a 64-bit key whose low word enforces
+  prefix order on exact ties; and
+- an exact causal first-throughput-drop scan matching DSpark Algorithm 1.
 
-For `R` requests and `K` draft positions, candidate ranking is `O(RK)` radix
-work and the auxiliary storage is `O(RK)`. `K` may be 1–32; the paper's default
-is 7.
+Larger candidate sets automatically use the CUB radix-sort/scan implementation.
+Both paths run on the current PyTorch stream without explicit host
+synchronization.
+
+For `R` requests and `K` draft positions, `K` may be 1–32; the paper's default
+is 7. The fused path is selected when `R*K <= 1024`—including the common
+`128*7=896` case.
 
 ## Install
 
@@ -68,6 +80,10 @@ cd DSpark
 chmod +x install.sh
 ./install.sh
 ```
+
+Editable installation creates a `cuda_ml_dspark.egg-info/` directory containing
+package metadata. It is normal, contains no runtime code or profiling data, and
+is ignored by Git.
 
 PyTorch chooses the local GPU architecture automatically. To build a portable
 binary, set `TORCH_CUDA_ARCH_LIST`, for example:
@@ -163,6 +179,8 @@ cuBLAS depends on batch size, vocabulary, rank, dtype, and architecture.
 - Inference forward path only for the custom kernels.
 - Markov head: FP32, FP16, or BF16; rank up to 4096.
 - Scheduler: FP32, FP16, or BF16 confidence logits; proposal length up to 32.
+- The optimized Markov path uses a dense cuBLAS/Tensor Core GEMM; the raw
+  scalar kernel is retained only for comparison.
 - All CUDA work is submitted to the active PyTorch stream and respects the
   current CUDA device guard.
 - CPU and autograd paths use native PyTorch operations.
