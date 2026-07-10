@@ -37,10 +37,10 @@ output = 1 * (latent @ W2.T) + 1 * base_logits
 This reuses projection tiles across requests, enables Tensor Cores for aligned
 FP16/BF16 shapes, and folds the base-logit addition into the GEMM update. The
 original scalar CUDA kernel remains available as `markov_logits_raw_cuda` for
-research comparisons, but it is not the production default: treating a batch
-as independent GEMVs rereads the projection matrix once per request and loses
-Tensor Core throughput. During autograd the API uses native PyTorch operations
-so parameter gradients remain exact.
+research comparisons. Production dispatch uses it only for batch sizes 1–2 on
+pre-Volta GPUs, where launch/setup cost dominates and Tensor Cores are absent;
+larger batches and newer architectures use cuBLAS. During autograd the API uses
+native PyTorch operations so parameter gradients remain exact.
 
 ### Confidence scheduler
 
@@ -50,12 +50,12 @@ Given conditional acceptance estimates `c[r, k]`, calibrated prefix survival is
 p[r, k] = product(sigmoid(logit[r, j] / temperature[j]), j=0..k)
 ```
 
-For up to 1024 candidates, the extension uses:
+For the production envelope of up to 896 candidates, the extension uses:
 
 - one fused CUDA launch for survival construction, sorting, admission, and
   scatter;
-- a shared-memory bitonic network with a 64-bit key whose low word enforces
-  prefix order on exact ties; and
+- a CTA-local CUB radix sort with four candidates per thread and a 64-bit key
+  whose low word preserves stable row-major order on exact ties; and
 - an exact causal first-throughput-drop scan matching DSpark Algorithm 1.
 
 Larger candidate sets automatically use the CUB radix-sort/scan implementation.
@@ -63,8 +63,8 @@ Both paths run on the current PyTorch stream without explicit host
 synchronization.
 
 For `R` requests and `K` draft positions, `K` may be 1–32; the paper's default
-is 7. The fused path is selected when `R*K <= 1024`—including the common
-`128*7=896` case.
+is 7. The fused path is selected when `R*K <= 896`, exactly covering the common
+`128*7` serving case while larger sets retain the numerically matched CUB scan.
 
 ## Install
 
@@ -81,9 +81,9 @@ chmod +x install.sh
 ./install.sh
 ```
 
-Editable installation creates a `cuda_ml_dspark.egg-info/` directory containing
-package metadata. It is normal, contains no runtime code or profiling data, and
-is ignored by Git.
+The installer performs a regular wheel-style installation without build
+isolation, so it also works with older setuptools releases that do not support
+PEP 660 editable builds.
 
 PyTorch chooses the local GPU architecture automatically. To build a portable
 binary, set `TORCH_CUDA_ARCH_LIST`, for example:
@@ -179,8 +179,8 @@ cuBLAS depends on batch size, vocabulary, rank, dtype, and architecture.
 - Inference forward path only for the custom kernels.
 - Markov head: FP32, FP16, or BF16; rank up to 4096.
 - Scheduler: FP32, FP16, or BF16 confidence logits; proposal length up to 32.
-- The optimized Markov path uses a dense cuBLAS/Tensor Core GEMM; the raw
-  scalar kernel is retained only for comparison.
+- The optimized Markov path uses a dense cuBLAS/Tensor Core GEMM except for
+  batch sizes 1–2 on pre-Volta GPUs, which use the lower-overhead scalar path.
 - All CUDA work is submitted to the active PyTorch stream and respects the
   current CUDA device guard.
 - CPU and autograd paths use native PyTorch operations.

@@ -19,6 +19,8 @@ namespace {
 constexpr int kThreads = 256;
 constexpr int kWarpSize = 32;
 constexpr int kVocabItemsPerThread = 4;
+constexpr int kSchedulerItemsPerThread = 4;
+constexpr int kSmallSchedulerCandidates = 128 * 7;
 
 template <typename scalar_t>
 __device__ __forceinline__ float as_float(scalar_t value) {
@@ -136,19 +138,19 @@ __global__ __launch_bounds__(kThreads) void build_candidates_kernel(
         survival[index] = prefix;
 
         // Positive IEEE-754 floats preserve numeric order in their bit pattern.
-        // Position is the low-word tie break, so a prefix can never admit a
-        // later equal-probability token before its predecessor.
+        // Flat position is the low-word tie break, matching stable row-major
+        // ordering for equal probabilities.
         const uint64_t probability_bits = static_cast<uint64_t>(__float_as_uint(prefix));
-        const uint32_t position_tie_break = 0xffffffffu - static_cast<uint32_t>(lane);
+        const uint32_t position_tie_break =
+            0xffffffffu - static_cast<uint32_t>(index);
         keys[index] = (probability_bits << 32) | position_tie_break;
         candidate_ids[index] = index;
     }
 }
 
-// DSpark's production block is short (gamma=7), so common serving batches fit
-// in one 1024-thread CTA. Keeping candidate construction, sorting, causal
-// admission, and scatter in one launch avoids CUB temporary allocations and
-// six extra kernel launches. Larger candidate sets use the CUB path below.
+// The production 128x7 schedule fits in one CTA. CUB's block radix sort keeps
+// four candidates per thread in registers and avoids the 55 synchronization
+// rounds required by a 1024-item bitonic network.
 template <typename scalar_t>
 __global__ void schedule_small_kernel(
     const scalar_t* __restrict__ logits,
@@ -161,23 +163,23 @@ __global__ void schedule_small_kernel(
     float* __restrict__ expected_throughput,
     int request_count,
     int proposal_length,
-    int candidate_count,
-    int padded_count) {
+    int candidate_count) {
+    using BlockSort = cub::BlockRadixSort<
+        uint64_t,
+        kThreads,
+        kSchedulerItemsPerThread,
+        int32_t>;
+    __shared__ typename BlockSort::TempStorage sort_storage;
     extern __shared__ unsigned char shared_bytes[];
-    auto* keys = reinterpret_cast<uint64_t*>(shared_bytes);
-    auto* candidate_ids = reinterpret_cast<int32_t*>(keys + padded_count);
+    auto* sorted_keys = reinterpret_cast<uint64_t*>(shared_bytes);
+    auto* sorted_ids = reinterpret_cast<int32_t*>(
+        sorted_keys + kThreads * kSchedulerItemsPerThread);
     const int tid = threadIdx.x;
 
-    keys[tid] = 0;
-    candidate_ids[tid] = -1;
-    if (tid < request_count) {
-        lengths[tid] = 0;
+    for (int request = tid; request < request_count; request += blockDim.x) {
+        lengths[request] = 0;
     }
-    __syncthreads();
 
-    // One thread builds the complete short prefix for one request. This avoids
-    // duplicated sigmoid work and is cheaper than remapping gamma-wide rows to
-    // warps when gamma is only seven.
     for (int request = tid; request < request_count; request += blockDim.x) {
         float prefix = 1.0f;
         for (int position = 0; position < proposal_length; ++position) {
@@ -186,38 +188,38 @@ __global__ void schedule_small_kernel(
                 as_float(logits[index]) / temperatures[position];
             prefix *= 1.0f / (1.0f + __expf(-scaled_logit));
             survival[index] = prefix;
-
-            const uint64_t probability_bits =
-                static_cast<uint64_t>(__float_as_uint(prefix));
-            const uint32_t position_tie_break =
-                0xffffffffu - static_cast<uint32_t>(position);
-            keys[index] = (probability_bits << 32) | position_tie_break;
-            candidate_ids[index] = index;
         }
     }
     __syncthreads();
 
-    // In-place ascending bitonic sort; thread zero consumes it in reverse.
-    // The composite key keeps earlier tokens ahead on equal probabilities.
-    for (int size = 2; size <= padded_count; size <<= 1) {
-        for (int stride = size >> 1; stride > 0; stride >>= 1) {
-            const int partner = tid ^ stride;
-            if (partner > tid) {
-                const bool ascending = (tid & size) == 0;
-                const uint64_t left = keys[tid];
-                const uint64_t right = keys[partner];
-                const bool swap = ascending ? (left > right) : (left < right);
-                if (swap) {
-                    keys[tid] = right;
-                    keys[partner] = left;
-                    const int32_t left_id = candidate_ids[tid];
-                    candidate_ids[tid] = candidate_ids[partner];
-                    candidate_ids[partner] = left_id;
-                }
-            }
-            __syncthreads();
+    uint64_t thread_keys[kSchedulerItemsPerThread];
+    int32_t thread_ids[kSchedulerItemsPerThread];
+#pragma unroll
+    for (int item = 0; item < kSchedulerItemsPerThread; ++item) {
+        const int index = tid * kSchedulerItemsPerThread + item;
+        if (index < candidate_count) {
+            const uint64_t probability_bits = static_cast<uint64_t>(
+                __float_as_uint(survival[index]));
+            const uint32_t stable_tie_break =
+                0xffffffffu - static_cast<uint32_t>(index);
+            thread_keys[item] =
+                (probability_bits << 32) | stable_tie_break;
+            thread_ids[item] = index;
+        } else {
+            thread_keys[item] = 0;
+            thread_ids[item] = -1;
         }
     }
+
+    BlockSort(sort_storage).SortDescending(thread_keys, thread_ids);
+
+#pragma unroll
+    for (int item = 0; item < kSchedulerItemsPerThread; ++item) {
+        const int index = tid * kSchedulerItemsPerThread + item;
+        sorted_keys[index] = thread_keys[item];
+        sorted_ids[index] = thread_ids[item];
+    }
+    __syncthreads();
 
     if (tid == 0) {
         float expected = static_cast<float>(request_count);
@@ -225,15 +227,10 @@ __global__ void schedule_small_kernel(
         int selected = 0;
 
         for (int order = 0; order < candidate_count; ++order) {
-            const int slot = padded_count - 1 - order;
-            const int candidate = candidate_ids[slot];
+            const int candidate = sorted_ids[order];
             const uint32_t probability_bits =
-                static_cast<uint32_t>(keys[slot] >> 32);
+                static_cast<uint32_t>(sorted_keys[order] >> 32);
             const float probability = __uint_as_float(probability_bits);
-            if (candidate < 0 || !(probability > 0.0f)) {
-                break;
-            }
-
             const float candidate_expected = expected + probability;
             const float candidate_throughput =
                 candidate_expected * step_curve[request_count + selected + 1];
@@ -470,18 +467,14 @@ std::vector<torch::Tensor> dspark_schedule_cuda(
     const auto long_options = confidence_logits.options().dtype(torch::kInt64);
     const auto byte_options = confidence_logits.options().dtype(torch::kUInt8);
 
-    if (candidate_count <= 1024) {
-        int padded_count = 1;
-        while (padded_count < candidate_count) {
-            padded_count <<= 1;
-        }
+    if (candidate_count <= kSmallSchedulerCandidates) {
         auto survival = torch::empty_like(confidence_logits, float_options);
         auto lengths = torch::empty({request_count}, int_options);
         auto selected_count = torch::empty({1}, int_options);
         auto expected_tokens = torch::empty({1}, float_options);
         auto expected_throughput = torch::empty({1}, float_options);
         const size_t shared_bytes =
-            static_cast<size_t>(padded_count) *
+            static_cast<size_t>(kThreads * kSchedulerItemsPerThread) *
             (sizeof(uint64_t) + sizeof(int32_t));
 
         AT_DISPATCH_FLOATING_TYPES_AND2(
@@ -492,7 +485,7 @@ std::vector<torch::Tensor> dspark_schedule_cuda(
             [&] {
                 schedule_small_kernel<scalar_t><<<
                     1,
-                    padded_count,
+                    kThreads,
                     shared_bytes,
                     stream>>>(
                     confidence_logits.data_ptr<scalar_t>(),
@@ -505,8 +498,7 @@ std::vector<torch::Tensor> dspark_schedule_cuda(
                     expected_throughput.data_ptr<float>(),
                     request_count,
                     proposal_length,
-                    candidate_count,
-                    padded_count);
+                    candidate_count);
             });
         C10_CUDA_KERNEL_LAUNCH_CHECK();
         return {

@@ -1,5 +1,7 @@
 #include <torch/extension.h>
 
+#include <ATen/cuda/CUDAContext.h>
+
 #include "dspark_cuda.h"
 
 torch::Tensor dspark_markov_logits(
@@ -41,6 +43,18 @@ torch::Tensor dspark_markov_logits(
     TORCH_CHECK(projection_t.size(0) == rank &&
                     projection_t.size(1) == vocab,
                 "projection_t must have shape [rank, vocab]");
+
+    // Pascal has no Tensor Cores and cuBLAS setup dominates at batch 1-2.
+    // Keep newer architectures on GEMM, where vendor kernels are consistently
+    // faster even for decode microbatches.
+    const cudaDeviceProp* properties = at::cuda::getCurrentDeviceProperties();
+    if (properties->major < 7 && batch <= 2) {
+        return dspark_markov_logits_cuda(
+            base_logits,
+            previous_token_ids,
+            token_embedding,
+            projection_t);
+    }
 
     // One GEMM lets cuBLAS reuse W2 tiles across all requests and select a
     // Tensor Core implementation. addmm folds base_logits into the GEMM
