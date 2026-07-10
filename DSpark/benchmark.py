@@ -7,7 +7,12 @@ import statistics
 
 import torch
 
-from .dspark import cuda_extension_available, markov_logits, schedule
+from .dspark import (
+    cuda_extension_available,
+    markov_logits,
+    markov_logits_raw_cuda,
+    schedule,
+)
 from .reference import markov_logits_reference, schedule_reference
 
 
@@ -89,6 +94,11 @@ def main() -> None:
             args.warmup,
             args.iterations,
         )
+        raw_markov_us = _time_cuda(
+            lambda: markov_logits_raw_cuda(logits, ids, embedding, projection_t),
+            args.warmup,
+            args.iterations,
+        )
         torch_markov_us = _time_cuda(
             lambda: markov_logits_reference(logits, ids, embedding, projection_t),
             args.warmup,
@@ -107,10 +117,11 @@ def main() -> None:
 
     print(f"GPU: {torch.cuda.get_device_name()}")
     print(f"dtype={args.dtype}, requests={args.requests}")
-    print(f"Markov CUDA:     {custom_markov_us:9.2f} us")
-    print(f"Markov PyTorch:  {torch_markov_us:9.2f} us")
-    print(f"Scheduler CUDA:  {custom_schedule_us:9.2f} us")
-    print(f"Scheduler Torch: {torch_schedule_us:9.2f} us")
+    print(f"Markov optimized: {custom_markov_us:9.2f} us")
+    print(f"Markov raw CUDA:  {raw_markov_us:9.2f} us")
+    print(f"Markov PyTorch:   {torch_markov_us:9.2f} us")
+    print(f"Scheduler CUDA:   {custom_schedule_us:9.2f} us")
+    print(f"Scheduler Torch:  {torch_schedule_us:9.2f} us")
 
 
 if __name__ == "__main__":

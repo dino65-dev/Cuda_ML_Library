@@ -145,6 +145,116 @@ __global__ __launch_bounds__(kThreads) void build_candidates_kernel(
     }
 }
 
+// DSpark's production block is short (gamma=7), so common serving batches fit
+// in one 1024-thread CTA. Keeping candidate construction, sorting, causal
+// admission, and scatter in one launch avoids CUB temporary allocations and
+// six extra kernel launches. Larger candidate sets use the CUB path below.
+template <typename scalar_t>
+__global__ void schedule_small_kernel(
+    const scalar_t* __restrict__ logits,
+    const float* __restrict__ step_curve,
+    const float* __restrict__ temperatures,
+    int32_t* __restrict__ lengths,
+    float* __restrict__ survival,
+    int32_t* __restrict__ selected_count,
+    float* __restrict__ expected_tokens,
+    float* __restrict__ expected_throughput,
+    int request_count,
+    int proposal_length,
+    int candidate_count,
+    int padded_count) {
+    extern __shared__ unsigned char shared_bytes[];
+    auto* keys = reinterpret_cast<uint64_t*>(shared_bytes);
+    auto* candidate_ids = reinterpret_cast<int32_t*>(keys + padded_count);
+    const int tid = threadIdx.x;
+
+    keys[tid] = 0;
+    candidate_ids[tid] = -1;
+    if (tid < request_count) {
+        lengths[tid] = 0;
+    }
+    __syncthreads();
+
+    // One thread builds the complete short prefix for one request. This avoids
+    // duplicated sigmoid work and is cheaper than remapping gamma-wide rows to
+    // warps when gamma is only seven.
+    for (int request = tid; request < request_count; request += blockDim.x) {
+        float prefix = 1.0f;
+        for (int position = 0; position < proposal_length; ++position) {
+            const int index = request * proposal_length + position;
+            const float scaled_logit =
+                as_float(logits[index]) / temperatures[position];
+            prefix *= 1.0f / (1.0f + __expf(-scaled_logit));
+            survival[index] = prefix;
+
+            const uint64_t probability_bits =
+                static_cast<uint64_t>(__float_as_uint(prefix));
+            const uint32_t position_tie_break =
+                0xffffffffu - static_cast<uint32_t>(position);
+            keys[index] = (probability_bits << 32) | position_tie_break;
+            candidate_ids[index] = index;
+        }
+    }
+    __syncthreads();
+
+    // In-place ascending bitonic sort; thread zero consumes it in reverse.
+    // The composite key keeps earlier tokens ahead on equal probabilities.
+    for (int size = 2; size <= padded_count; size <<= 1) {
+        for (int stride = size >> 1; stride > 0; stride >>= 1) {
+            const int partner = tid ^ stride;
+            if (partner > tid) {
+                const bool ascending = (tid & size) == 0;
+                const uint64_t left = keys[tid];
+                const uint64_t right = keys[partner];
+                const bool swap = ascending ? (left > right) : (left < right);
+                if (swap) {
+                    keys[tid] = right;
+                    keys[partner] = left;
+                    const int32_t left_id = candidate_ids[tid];
+                    candidate_ids[tid] = candidate_ids[partner];
+                    candidate_ids[partner] = left_id;
+                }
+            }
+            __syncthreads();
+        }
+    }
+
+    if (tid == 0) {
+        float expected = static_cast<float>(request_count);
+        float best_throughput = expected * step_curve[request_count];
+        int selected = 0;
+
+        for (int order = 0; order < candidate_count; ++order) {
+            const int slot = padded_count - 1 - order;
+            const int candidate = candidate_ids[slot];
+            const uint32_t probability_bits =
+                static_cast<uint32_t>(keys[slot] >> 32);
+            const float probability = __uint_as_float(probability_bits);
+            if (candidate < 0 || !(probability > 0.0f)) {
+                break;
+            }
+
+            const float candidate_expected = expected + probability;
+            const float candidate_throughput =
+                candidate_expected * step_curve[request_count + selected + 1];
+            if (!(candidate_throughput > best_throughput)) {
+                break;
+            }
+
+            expected = candidate_expected;
+            best_throughput = candidate_throughput;
+            ++selected;
+            const int request = candidate / proposal_length;
+            const int position = candidate - request * proposal_length;
+            lengths[request] = position + 1;
+        }
+
+        selected_count[0] = selected;
+        expected_tokens[0] = expected;
+        expected_throughput[0] = best_throughput;
+    }
+}
+
 __global__ __launch_bounds__(kThreads) void unpack_probabilities_kernel(
     const uint64_t* __restrict__ sorted_keys,
     float* __restrict__ sorted_probabilities,
@@ -359,6 +469,54 @@ std::vector<torch::Tensor> dspark_schedule_cuda(
     const auto int_options = confidence_logits.options().dtype(torch::kInt32);
     const auto long_options = confidence_logits.options().dtype(torch::kInt64);
     const auto byte_options = confidence_logits.options().dtype(torch::kUInt8);
+
+    if (candidate_count <= 1024) {
+        int padded_count = 1;
+        while (padded_count < candidate_count) {
+            padded_count <<= 1;
+        }
+        auto survival = torch::empty_like(confidence_logits, float_options);
+        auto lengths = torch::empty({request_count}, int_options);
+        auto selected_count = torch::empty({1}, int_options);
+        auto expected_tokens = torch::empty({1}, float_options);
+        auto expected_throughput = torch::empty({1}, float_options);
+        const size_t shared_bytes =
+            static_cast<size_t>(padded_count) *
+            (sizeof(uint64_t) + sizeof(int32_t));
+
+        AT_DISPATCH_FLOATING_TYPES_AND2(
+            torch::kFloat16,
+            torch::kBFloat16,
+            confidence_logits.scalar_type(),
+            "dspark_schedule_small_cuda",
+            [&] {
+                schedule_small_kernel<scalar_t><<<
+                    1,
+                    padded_count,
+                    shared_bytes,
+                    stream>>>(
+                    confidence_logits.data_ptr<scalar_t>(),
+                    step_curve.data_ptr<float>(),
+                    temperatures.data_ptr<float>(),
+                    lengths.data_ptr<int32_t>(),
+                    survival.data_ptr<float>(),
+                    selected_count.data_ptr<int32_t>(),
+                    expected_tokens.data_ptr<float>(),
+                    expected_throughput.data_ptr<float>(),
+                    request_count,
+                    proposal_length,
+                    candidate_count,
+                    padded_count);
+            });
+        C10_CUDA_KERNEL_LAUNCH_CHECK();
+        return {
+            lengths,
+            survival,
+            selected_count,
+            expected_tokens,
+            expected_throughput,
+        };
+    }
 
     auto survival = torch::empty_like(confidence_logits, float_options);
     auto keys_in = torch::empty({candidate_count}, long_options);

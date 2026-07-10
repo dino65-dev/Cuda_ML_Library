@@ -11,7 +11,7 @@ A high-performance CUDA-accelerated machine-learning kernel library with Python 
 - **Multiple Kernel Functions**: Linear, RBF, Polynomial, and Sigmoid kernels
 - **Advanced Algorithms**: SMO (Sequential Minimal Optimization) algorithm implementation
 - **FlashAttention**: Memory-efficient O(N) attention mechanism for transformer models with full training support
-- **DeepSeek DSpark**: Fused low-rank Markov logits and confidence-scheduled speculative verification
+- **DeepSeek DSpark**: Tensor-Core Markov logits and fused confidence-scheduled verification
 - **Memory Optimization**: Efficient GPU memory management with pooling
 - **Easy Integration**: Scikit-learn compatible API and PyTorch integration
 
@@ -244,7 +244,7 @@ DSparkScheduler(proposal_length=7, temperatures=None)
 ```
 
 - FP32, FP16, and BF16 inference kernels
-- Warp-level calibrated prefix products and CUB candidate ranking
+- Tensor-Core dense Markov update with fused single-CTA scheduling for common batches
 - Paper-compatible first-throughput-drop admission rule
 - No host synchronization on the CUDA scheduling path
 - Native PyTorch fallback for CPU execution and Markov-head autograd

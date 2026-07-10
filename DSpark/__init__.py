@@ -7,6 +7,7 @@ from .dspark import (
     ScheduleResult,
     cuda_extension_available,
     markov_logits,
+    markov_logits_raw_cuda,
     schedule,
 )
 
@@ -17,5 +18,6 @@ __all__ = [
     "ScheduleResult",
     "cuda_extension_available",
     "markov_logits",
+    "markov_logits_raw_cuda",
     "schedule",
 ]

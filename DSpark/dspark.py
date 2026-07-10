@@ -109,6 +109,34 @@ def markov_logits(
     )
 
 
+def markov_logits_raw_cuda(
+    base_logits: torch.Tensor,
+    previous_token_ids: torch.Tensor,
+    token_embedding: torch.Tensor,
+    projection_t: torch.Tensor,
+) -> torch.Tensor:
+    """Run the original scalar CUDA research kernel for comparison.
+
+    This path intentionally remains available for microbatch experiments, but
+    it rereads the projection per request and is not the production default.
+    """
+
+    _check_markov_inputs(
+        base_logits,
+        previous_token_ids,
+        token_embedding,
+        projection_t,
+    )
+    if not base_logits.is_cuda or _dspark_cuda is None:
+        raise RuntimeError("the compiled DSpark CUDA extension is required")
+    return _dspark_cuda.markov_logits_raw(
+        base_logits.contiguous(),
+        previous_token_ids.contiguous(),
+        token_embedding.contiguous(),
+        projection_t.contiguous(),
+    )
+
+
 def _temperatures_tensor(
     temperatures: float | Sequence[float] | torch.Tensor | None,
     *,
@@ -134,13 +162,10 @@ def _temperatures_tensor(
         )
     if result.shape != (proposal_length,):
         raise ValueError("temperatures must contain one value per proposal position")
-    positive = torch.all(result > 0)
-    if result.is_cuda:
-        torch._assert_async(
-            positive,
-            "all sequential calibration temperatures must be positive",
-        )
-    elif not bool(positive.item()):
+    # Avoid launching a validation reduction on every decode step. Reusable
+    # DSparkScheduler temperatures are validated on CPU at construction time;
+    # direct CUDA callers are required to supply positive values.
+    if not result.is_cuda and not bool(torch.all(result > 0).item()):
         raise ValueError("all sequential calibration temperatures must be positive")
     return result.contiguous()
 
