@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "profilers": {
+    "modal_a10": "NVIDIA Nsight Systems 2026.4.1.191; explicit cuda-sw mode",
+    "gtx1050ti": "NVIDIA Nsight Systems 2022.4.2.50; CUDA 11.8 container"
+  },
+  "table_counts": {
+    "modal_a10": {
+      "cuda_kernel_activities": 0,
+      "cuda_runtime_activities": 5622,
+      "nvtx_events": 456
+    },
+    "gtx1050ti": {
+      "cuda_kernel_activities": 4389,
+      "cuda_runtime_activities": 5520,
+      "nvtx_events": 235
+    }
+  },
+  "files": [
+    {
+      "name": "README.md",
+      "bytes": 1266,
+      "sha256": "d9de8b0c0ab7944e976018aa72a056ac57e95fcf5bbce519d676b3c00742f91c"
+    },
+    {
+      "name": "decode_a10_nsys.nsys-rep",
+      "bytes": 525381,
+      "sha256": "6a927f1bbce967e8702f5344b8eafe43d315f7a74d622bd35380f134c93132a3"
+    },
+    {
+      "name": "decode_a10_nsys.sqlite",
+      "bytes": 8499200,
+      "sha256": "58cee9a6936abf70e3305d0778af08ac4b5bef83601ca53ed8da84ccb818a53e"
+    },
+    {
+      "name": "decode_a10_nsys_stats.csv_cuda_api_sum.csv",
+      "bytes": 1239,
+      "sha256": "ae7f1cc6ccd93d2c8e8c5f18b1202a99811b3bca3e369f81ca3994ac98a6f5b9"
+    },
+    {
+      "name": "decode_a10_nsys_stats.csv_cuda_gpu_kern_sum.csv",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "decode_a10_nsys_stats.csv_nvtx_gpu_proj_sum.csv",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "decode_a10_nsys_stats.csv_nvtx_sum.csv",
+      "bytes": 23367,
+      "sha256": "69d9aa480c3a1507640e4442146e9fe68a22d057dc55cb1da4c454ae0d2983cf"
+    },
+    {
+      "name": "decode_gtx1050ti_nsys.nsys-rep",
+      "bytes": 524893,
+      "sha256": "dbdd130624301f2d10a0531d0abf5585b893c3d1846289babe873028f4363d3c"
+    },
+    {
+      "name": "decode_gtx1050ti_nsys.qdstrm",
+      "bytes": 14187132,
+      "sha256": "3e99ba26c059e3deb75444771fe0067987113ab20a864ee132d373cb810d504b"
+    },
+    {
+      "name": "decode_gtx1050ti_nsys.sqlite",
+      "bytes": 1359872,
+      "sha256": "734f7871ca79b7b63c328073c017001d8947f101643b32b7644d9527b8d15657"
+    },
+    {
+      "name": "decode_gtx1050ti_stats_cudaapisum.csv",
+      "bytes": 934,
+      "sha256": "f4a3d7418482130b95a7033174d4225e187daa9eae7e2f4db0fa15ceecd99e0d"
+    },
+    {
+      "name": "decode_gtx1050ti_stats_gpukernsum.csv",
+      "bytes": 39371,
+      "sha256": "1c6a22b98fa337e3e814c1b1687334e1b755de68c99824e4886a9ee6a0087998"
+    },
+    {
+      "name": "decode_gtx1050ti_stats_kernexecsum.csv",
+      "bytes": 30319,
+      "sha256": "c59bb5fdc123272af4906e339a296c87c50c64d36ca114d23855c3743476c911"
+    },
+    {
+      "name": "decode_gtx1050ti_stats_nvtxgpuproj.csv",
+      "bytes": 28399,
+      "sha256": "cd269d66daeedc4b3bff755f2805eb57005a7d8ddb0e21e503f8cd355507c2b4"
+    },
+    {
+      "name": "decode_gtx1050ti_stats_nvtxkernsum.csv",
+      "bytes": 599442,
+      "sha256": "7032c6704bcc353f7651d68d0b0dc97742b28328faa0bcf09c05a668e35e5e01"
+    },
+    {
+      "name": "decode_gtx1050ti_stats_nvtxppsum.csv",
+      "bytes": 20866,
+      "sha256": "d7c9478d8b04233b2f9e287e05c6115a72b8e44f58dbdbfdc2c04b43956c44ff"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "provenance": "Representative decoder shapes based on common 7B-class GQA configurations; synthetic tensors, not captured production traffic.",
+  "traces": [
+    {"name": "residual_rms_decode_b1", "op": "residual_rms_norm", "tokens": 1, "hidden": 4096, "dtype": "float16"},
+    {"name": "residual_rms_decode_b32", "op": "residual_rms_norm", "tokens": 32, "hidden": 4096, "dtype": "float16"},
+    {"name": "rms_quant_decode_b32", "op": "rms_norm_quantize", "tokens": 32, "hidden": 4096, "dtype": "float16"},
+    {"name": "rope_gqa_decode_b32", "op": "rope_qk_norm", "batch": 32, "sequence": 1, "q_heads": 32, "kv_heads": 8, "head_dim": 128, "dtype": "float16"},
+    {"name": "kv_append_decode_b32", "op": "kv_cache_append", "tokens": 32, "capacity": 4096, "kv_heads": 8, "head_dim": 128, "dtype": "float16"},
+    {"name": "swiglu_decode_b1", "op": "bias_swiglu", "tokens": 1, "hidden": 11008, "dtype": "float16"},
+    {"name": "swiglu_decode_b32", "op": "bias_swiglu", "tokens": 32, "hidden": 11008, "dtype": "float16"},
+    {"name": "sampling_decode_b32", "op": "sample_logits", "tokens": 32, "vocabulary": 32000, "top_k": 50, "top_p": 0.95, "min_p": 0.02, "dtype": "float16"},
+    {"name": "small_n_linear_b1", "op": "small_n_linear", "tokens": 1, "input_features": 4096, "output_features": 4096, "dtype": "float16"}
+  ]
+}

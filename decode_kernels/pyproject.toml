@@ -1,0 +1,11 @@
+[build-system]
+requires = ["setuptools>=68", "wheel", "torch>=2.5", "ninja"]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+testpaths = ["tests"]
+markers = [
+  "cuda: requires a CUDA-capable GPU",
+  "multigpu: requires at least two CUDA devices",
+]

@@ -1,178 +1,71 @@
-name: Build and Deploy CUDA ML Library
+name: Validate CUDA ML Research Lab
 
 on:
   push:
-    branches: [ main ]
-    tags: [ 'v*' ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
-  release:
-    types: [published]
+    branches: [main]
+  workflow_dispatch:
 
-env:
-  PACKAGE_NAME: cuda-ml-library
+permissions:
+  contents: read
 
 jobs:
-  # Test build on different Python versions
-  test:
+  cpu-references-and-packaging:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python-version }}
-    
-    - name: Install system dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y build-essential
-    
-    - name: Install Python dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install numpy scikit-learn pytest wheel setuptools build
-    
-    - name: Create __init__.py files
-      run: |
-        touch __init__.py
-        touch SVM/__init__.py
-        touch HBM_SVM/__init__.py
-    
-    - name: Test package structure
-      run: |
-        python setup.py check
-        python -c "import os; print('✓ Package structure OK')"
+        python-version: ["3.10", "3.11", "3.12"]
 
-  # Build source distribution
-  build-sdist:
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install CPU test and build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install pytest build twine numpy scikit-learn
+
+      - name: Validate CPU references and public CPU dispatch
+        env:
+          PYTHONPATH: decode_kernels
+        run: python -m pytest -q decode_kernels/tests/test_references.py
+
+      - name: Build and inspect root source distribution
+        if: matrix.python-version == '3.11'
+        run: |
+          python -m build --sdist
+          twine check dist/*.tar.gz
+
+      - name: Upload source distribution
+        if: matrix.python-version == '3.11'
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-distribution
+          path: dist/*.tar.gz
+
+  cuda-validation-contract:
     runs-on: ubuntu-latest
-    needs: test
-    
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: "3.11"
-    
-    - name: Install build dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install build twine
-    
-    - name: Create __init__.py files
-      run: |
-        touch __init__.py
-        touch SVM/__init__.py
-        touch HBM_SVM/__init__.py
-    
-    - name: Build source distribution
-      run: |
-        python -m build --sdist
-    
-    - name: Check distribution
-      run: |
-        twine check dist/*
-    
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: source-dist
-        path: dist/*.tar.gz
+      - uses: actions/checkout@v4
 
-  # Build wheels for different platforms  
-  build-wheels:
-    runs-on: ${{ matrix.os }}
-    needs: test
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python-version }}
-    
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install wheel setuptools numpy scikit-learn build
-    
-    - name: Create __init__.py files
-      run: |
-        touch __init__.py
-        touch SVM/__init__.py  
-        touch HBM_SVM/__init__.py
-    
-    - name: Build wheel
-      run: |
-        python -m build --wheel
-    
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: wheels-${{ matrix.os }}-py${{ matrix.python-version }}
-        path: dist/*.whl
+      - name: Verify Modal runner and trace schema are tracked
+        run: |
+          test -f modal/run_decode_gpu.py
+          test -f decode_kernels/benchmarks/decode_traces.json
+          python -m json.tool decode_kernels/benchmarks/decode_traces.json >/dev/null
 
-  # Deploy to TestPyPI on main branch
-  deploy-test:
-    runs-on: ubuntu-latest
-    needs: [build-sdist, build-wheels]
-    if: github.ref == 'refs/heads/main' && github.repository == 'dino65-dev/Cuda-ML-Library'
-    
-    steps:
-    - name: Download all artifacts
-      uses: actions/download-artifact@v4
-      with:
-        path: dist-artifacts/
-    
-    - name: Prepare distribution files
-      run: |
-        mkdir -p dist/
-        find dist-artifacts/ -name "*.whl" -exec cp {} dist/ \;
-        find dist-artifacts/ -name "*.tar.gz" -exec cp {} dist/ \;
-        ls -la dist/
-    
-    - name: Publish to TestPyPI
-      if: ${{ secrets.TEST_PYPI_API_TOKEN != '' }}
-      uses: pypa/gh-action-pypi-publish@release/v1
-      with:
-        repository-url: https://test.pypi.org/legacy/
-        password: ${{ secrets.TEST_PYPI_API_TOKEN }}
-        skip-existing: true
+      - name: Explain GPU validation boundary
+        run: |
+          echo "CUDA compilation, correctness, opcheck, torch.compile, and CUDA Graph tests run through the authenticated Modal A10G runner."
+          echo "The latest machine-readable run is artifacts/modal_a10g_decode_validation.json."
 
-  # Deploy to PyPI on release
-  deploy-pypi:
-    runs-on: ubuntu-latest
-    needs: [build-sdist, build-wheels]
-    if: github.event_name == 'release' && github.event.action == 'published'
-    
-    steps:
-    - name: Download all artifacts
-      uses: actions/download-artifact@v4
-      with:
-        path: dist-artifacts/
-    
-    - name: Prepare distribution files
-      run: |
-        mkdir -p dist/
-        find dist-artifacts/ -name "*.whl" -exec cp {} dist/ \;
-        find dist-artifacts/ -name "*.tar.gz" -exec cp {} dist/ \;
-        ls -la dist/
-    
-    - name: Publish to PyPI
-      if: ${{ secrets.PYPI_API_TOKEN != '' }}
-      uses: pypa/gh-action-pypi-publish@release/v1
-      with:
-        password: ${{ secrets.PYPI_API_TOKEN }}
+# Publishing is intentionally absent. The repository does not yet have a
+# coherent binary-wheel/architecture policy, and CPU-built wheels must not be
+# presented as validated CUDA distributions.

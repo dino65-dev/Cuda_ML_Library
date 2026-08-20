@@ -1,0 +1,261 @@
+{
+  "schema_version": 1,
+  "sources": {
+    "cloud_benchmark": "artifacts/modal_a10g_decode_validation.json",
+    "modal_nsys": "artifacts/nsys/decode_a10_nsys.nsys-rep",
+    "pascal_nsys": "artifacts/nsys/decode_gtx1050ti_nsys.nsys-rep"
+  },
+  "cloud_a10": [
+    {
+      "trace": "residual_rms_decode_b1",
+      "custom_hot_p50_us": 10.239999741315842,
+      "custom_cold_p50_us": 17.216000705957413,
+      "reference_hot_p50_us": 29.69600073993206,
+      "speedup": 2.9000001455191557
+    },
+    {
+      "trace": "residual_rms_decode_b32",
+      "custom_hot_p50_us": 10.239999741315842,
+      "custom_cold_p50_us": 17.40800030529499,
+      "reference_hot_p50_us": 38.91199827194214,
+      "speedup": 3.799999927240422
+    },
+    {
+      "trace": "rms_quant_decode_b32",
+      "custom_hot_p50_us": 11.264000087976456,
+      "custom_cold_p50_us": 18.432000651955605,
+      "reference_hot_p50_us": 62.463998794555664,
+      "speedup": 5.545454395124844
+    },
+    {
+      "trace": "rope_gqa_decode_b32",
+      "custom_hot_p50_us": 10.239999741315842,
+      "custom_cold_p50_us": 11.264000087976456,
+      "reference_hot_p50_us": 101.3759970664978,
+      "speedup": 9.89999996362021
+    },
+    {
+      "trace": "kv_append_decode_b32",
+      "custom_hot_p50_us": 4.095999989658594,
+      "custom_cold_p50_us": 5.119999870657921,
+      "reference_hot_p50_us": 167.1680063009262,
+      "speedup": 40.81250164135373
+    },
+    {
+      "trace": "swiglu_decode_b1",
+      "custom_hot_p50_us": 3.3599999733269215,
+      "custom_cold_p50_us": 4.095999989658594,
+      "reference_hot_p50_us": 24.57600086927414,
+      "speedup": 7.314286031062102
+    },
+    {
+      "trace": "swiglu_decode_b32",
+      "custom_hot_p50_us": 6.144000217318535,
+      "custom_cold_p50_us": 9.216000325977802,
+      "reference_hot_p50_us": 39.93599861860275,
+      "speedup": 6.499999545252665
+    },
+    {
+      "trace": "sampling_decode_b32",
+      "custom_hot_p50_us": 163.83999586105347,
+      "custom_cold_p50_us": 164.86400365829468,
+      "reference_hot_p50_us": 163.83999586105347,
+      "speedup": 1.0
+    },
+    {
+      "trace": "small_n_linear_b1",
+      "custom_hot_p50_us": 77.82399654388428,
+      "custom_cold_p50_us": 84.99199897050858,
+      "reference_hot_p50_us": 77.82399654388428,
+      "speedup": 1.0
+    }
+  ],
+  "pascal_nsys": {
+    "iterations_per_range": 12,
+    "ranges": [
+      {
+        "trace": "residual_rms_decode_b1",
+        "custom_gpu_span_us": 55.10166666666667,
+        "reference_gpu_span_us": 148.16983333333334,
+        "nsys_speedup": 2.6890263452406162,
+        "custom_gpu_ops": 1.0,
+        "reference_gpu_ops": 12.0,
+        "custom_host_enqueue_us": 67.24433333333333,
+        "reference_host_enqueue_us": 151.60325
+      },
+      {
+        "trace": "residual_rms_decode_b32",
+        "custom_gpu_span_us": 48.246,
+        "reference_gpu_span_us": 139.4795,
+        "nsys_speedup": 2.8910065083115697,
+        "custom_gpu_ops": 1.0,
+        "reference_gpu_ops": 12.0,
+        "custom_host_enqueue_us": 51.79441666666666,
+        "reference_host_enqueue_us": 124.63475
+      },
+      {
+        "trace": "rms_quant_decode_b32",
+        "custom_gpu_span_us": 35.49458333333334,
+        "reference_gpu_span_us": 309.35516666666666,
+        "nsys_speedup": 8.715559885898081,
+        "custom_gpu_ops": 1.0,
+        "reference_gpu_ops": 18.0,
+        "custom_host_enqueue_us": 50.94833333333334,
+        "reference_host_enqueue_us": 246.64558333333335
+      },
+      {
+        "trace": "rope_gqa_decode_b32",
+        "custom_gpu_span_us": 120.89891666666666,
+        "reference_gpu_span_us": 321.90933333333334,
+        "nsys_speedup": 2.6626320748669516,
+        "custom_gpu_ops": 1.0,
+        "reference_gpu_ops": 40.0,
+        "custom_host_enqueue_us": 63.461666666666666,
+        "reference_host_enqueue_us": 443.3848333333333
+      },
+      {
+        "trace": "kv_append_decode_b32",
+        "custom_gpu_span_us": 41.017,
+        "reference_gpu_span_us": 206.97541666666666,
+        "nsys_speedup": 5.046088613664253,
+        "custom_gpu_ops": 1.0,
+        "reference_gpu_ops": 20.0,
+        "custom_host_enqueue_us": 45.665333333333336,
+        "reference_host_enqueue_us": 209.14491666666666
+      },
+      {
+        "trace": "swiglu_decode_b1",
+        "custom_gpu_span_us": 43.20883333333334,
+        "reference_gpu_span_us": 91.74283333333332,
+        "nsys_speedup": 2.1232425468557734,
+        "custom_gpu_ops": 1.0,
+        "reference_gpu_ops": 9.0,
+        "custom_host_enqueue_us": 47.86425,
+        "reference_host_enqueue_us": 93.76675
+      },
+      {
+        "trace": "swiglu_decode_b32",
+        "custom_gpu_span_us": 57.117583333333336,
+        "reference_gpu_span_us": 369.0006666666667,
+        "nsys_speedup": 6.46036903405402,
+        "custom_gpu_ops": 1.0,
+        "reference_gpu_ops": 9.0,
+        "custom_host_enqueue_us": 53.84125,
+        "reference_host_enqueue_us": 116.83641666666666
+      },
+      {
+        "trace": "sampling_decode_b32",
+        "custom_gpu_span_us": 1109.426,
+        "reference_gpu_span_us": 1071.2435,
+        "nsys_speedup": 0.9655835540180239,
+        "custom_gpu_ops": 39.0,
+        "reference_gpu_ops": 39.0,
+        "custom_host_enqueue_us": 371.4519166666667,
+        "reference_host_enqueue_us": 337.1784166666667
+      },
+      {
+        "trace": "small_n_linear_b1",
+        "custom_gpu_span_us": 381.7921666666667,
+        "reference_gpu_span_us": 392.765,
+        "nsys_speedup": 1.0287403312360608,
+        "custom_gpu_ops": 1.0,
+        "reference_gpu_ops": 1.0,
+        "custom_host_enqueue_us": 29.88475,
+        "reference_host_enqueue_us": 26.3185
+      }
+    ],
+    "kernel_categories": [
+      {
+        "category": "Top-k / radix selection",
+        "total_gpu_ms": 25.596151,
+        "instances": 616
+      },
+      {
+        "category": "Copies / casts",
+        "total_gpu_ms": 23.965823,
+        "instances": 1652
+      },
+      {
+        "category": "cuBLAS GEMV/GEMM",
+        "total_gpu_ms": 18.510272,
+        "instances": 44
+      },
+      {
+        "category": "ATen elementwise",
+        "total_gpu_ms": 11.338025,
+        "instances": 1257
+      },
+      {
+        "category": "Reductions / scans",
+        "total_gpu_ms": 3.346489,
+        "instances": 594
+      },
+      {
+        "category": "Custom QK norm + RoPE",
+        "total_gpu_ms": 2.666895,
+        "instances": 22
+      },
+      {
+        "category": "Random generation",
+        "total_gpu_ms": 1.995151,
+        "instances": 28
+      },
+      {
+        "category": "Custom SwiGLU",
+        "total_gpu_ms": 1.214795,
+        "instances": 44
+      },
+      {
+        "category": "Custom residual RMSNorm",
+        "total_gpu_ms": 0.689696,
+        "instances": 44
+      },
+      {
+        "category": "Custom RMSNorm -> INT8",
+        "total_gpu_ms": 0.456238,
+        "instances": 22
+      },
+      {
+        "category": "Softmax",
+        "total_gpu_ms": 0.203027,
+        "instances": 44
+      },
+      {
+        "category": "Custom KV append",
+        "total_gpu_ms": 0.16076,
+        "instances": 22
+      }
+    ]
+  },
+  "modal_nsys": {
+    "cuda_api_calls": 5622,
+    "cuda_launch_calls": 4389,
+    "gpu_kernel_table_rows": 0,
+    "diagnostics": [
+      "Profiling has started.",
+      "Profiling has stopped.",
+      "Scheduling information is absent. The thread activity is deduced based on OS runtime libraries traces. This is inaccurate and does not take into account asynchronous interrupts and exception faults.",
+      "Process was launched by the profiler, see /tmp/nvidia/nsight_systems/quadd_session_1034/streams/pid_45_stdout.log and stderr.log for program output",
+      "Common injection library initialized successfully.",
+      "OS runtime libraries injection initialized successfully.",
+      "Buffers holding CUDA trace data will be flushed on CudaProfilerStop() call. See --flush-on-cudaprofilerstop to control this behavior.",
+      "Loaded CUPTI library: /opt/nvidia/nsight-systems-cli/2026.4.1/target-linux-x64/libcupti.so.13.3",
+      "Enabling trace for device graph launch",
+      "CUDA injection initialized successfully.",
+      "ActivityEnable(CUPTI_ACTIVITY_KIND_UNIFIED_MEMORY_COUNTER) returned 1: CUPTI_ERROR_INVALID_PARAMETER",
+      "NVTX injection initialized successfully.",
+      "Number of CUPTI events produced: \t10792, CUPTI buffers: 50.",
+      "CUDA legacy/software instrumented trace was collected.",
+      "Not all NVTX events might have been collected.",
+      "Number of NVTX events collected: \t456.",
+      "Number of CUDA events collected: \t5622.",
+      "Number of OS runtime libraries events collected: \t13154."
+    ]
+  },
+  "caveats": [
+    "A10 speedups use queued device-only CUDA Events from a separate Modal run.",
+    "Modal/gVisor provided CUDA API and NVTX traces but no GPU workload activity table to Nsight Systems.",
+    "Kernel-level Nsight evidence is therefore reported separately on the physical GTX 1050 Ti.",
+    "Synthetic representative shapes are not captured production traffic."
+  ]
+}

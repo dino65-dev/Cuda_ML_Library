@@ -1,37 +1,40 @@
 # CUDA ML Library [![zread](https://img.shields.io/badge/Ask_Zread-_.svg?style=plastic&color=00b0aa&labelColor=000000&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTQuOTYxNTYgMS42MDAxSDIuMjQxNTZDMS44ODgxIDEuNjAwMSAxLjYwMTU2IDEuODg2NjQgMS42MDE1NiAyLjI0MDFWNC45NjAxQzEuNjAxNTYgNS4zMTM1NiAxLjg4ODEgNS42MDAxIDIuMjQxNTYgNS42MDAxSDQuOTYxNTZDNS4zMTUwMiA1LjYwMDEgNS42MDE1NiA1LjMxMzU2IDUuNjAxNTYgNC45NjAxVjIuMjQwMUM1LjYwMTU2IDEuODg2NjQgNS4zMTUwMiAxLjYwMDEgNC45NjE1NiAxLjYwMDFaIiBmaWxsPSIjZmZmIi8%2BCjxwYXRoIGQ9Ik00Ljk2MTU2IDEwLjM5OTlIMi4yNDE1NkMxLjg4ODEgMTAuMzk5OSAxLjYwMTU2IDEwLjY4NjQgMS42MDE1NiAxMS4wMzk5VjEzLjc1OTlDMS42MDE1NiAxNC4xMTM0IDEuODg4MSAxNC4zOTk5IDIuMjQxNTYgMTQuMzk5OUg0Ljk2MTU2QzUuMzE1MDIgMTQuMzk5OSA1LjYwMTU2IDE0LjExMzQgNS42MDE1NiAxMy43NTk5VjExLjAzOTlDNS42MDE1NiAxMC42ODY0IDUuMzE1MDIgMTAuMzk5OSA0Ljk2MTU2IDEwLjM5OTlaIiBmaWxsPSIjZmZmIi8%2BCjxwYXRoIGQ9Ik0xMy43NTg0IDEuNjAwMUgxMS4wMzg0QzEwLjY4NSAxLjYwMDEgMTAuMzk4NCAxLjg4NjY0IDEwLjM5ODQgMi4yNDAxVjQuOTYwMUMxMC4zOTg0IDUuMzEzNTYgMTAuNjg1IDUuNjAwMSAxMS4wMzg0IDUuNjAwMUgxMy43NTg0QzE0LjExMTkgNS42MDAxIDE0LjM5ODQgNS4zMTM1NiAxNC4zOTg0IDQuOTYwMVYyLjI0MDFDMTQuMzk4NCAxLjg4NjY0IDE0LjExMTkgMS42MDAxIDEzLjc1ODQgMS42MDAxWiIgZmlsbD0iI2ZmZiIvPgo8cGF0aCBkPSJNNCAxMkwxMiA0TDQgMTJaIiBmaWxsPSIjZmZmIi8%2BCjxwYXRoIGQ9Ik00IDEyTDEyIDQiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIxLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgo8L3N2Zz4K&logoColor=ffffff)](https://zread.ai/dino65-dev/Cuda_ML_Library.git)
 
-A high-performance CUDA-accelerated machine-learning kernel library with Python integration and CPU/PyTorch fallbacks.
+A reproducible CUDA-kernel research lab for studying inference operators from
+Pascal-class consumer GPUs through modern cloud GPUs. DSpark and Decode Kernels
+are the validated research modules; SVM, Random Forest, and the original
+FlashAttention directory are retained as educational/incomplete prototypes.
 
 ## 🚀 Features
 
-- **GPU Acceleration**: Full CUDA support for NVIDIA GPUs with Compute Capability 6.0+
-- **Automatic CPU Fallback**: Seamless fallback to optimized CPU implementation when CUDA is unavailable
-- **Cross-Platform Compatibility**: Linux, Windows, and macOS support
-- **Multiple SVM Types**: Classification (C-SVC, Nu-SVC) and Regression (Epsilon-SVR, Nu-SVR)
-- **Multiple Kernel Functions**: Linear, RBF, Polynomial, and Sigmoid kernels
-- **Advanced Algorithms**: SMO (Sequential Minimal Optimization) algorithm implementation
-- **FlashAttention**: Memory-efficient O(N) attention mechanism for transformer models with full training support
-- **DeepSeek DSpark**: Tensor-Core Markov logits and fused confidence-scheduled verification
-- **Memory Optimization**: Efficient GPU memory management with pooling
-- **Easy Integration**: Scikit-learn compatible API and PyTorch integration
+- **Decode Kernels**: Fused residual/RMSNorm, RMSNorm-to-INT8, QK norm + RoPE,
+  KV-cache append, and bias + SwiGLU kernels with FP32/FP16/BF16 support.
+- **Modern PyTorch Integration**: Stable `torch.library` schemas, FakeTensor,
+  autograd registrations, `torch.compile`, current-stream, and CUDA Graph tests.
+- **DeepSeek DSpark**: Architecture-aware Markov dispatch and a fused
+  confidence-scheduled verification path.
+- **Evidence First**: Independent PyTorch references, adversarial correctness
+  tests, labelled trace assumptions, and machine-readable warm/cold benchmarks.
+- **Cross-generation Research**: Raw CUDA paths retain a Pascal lane while Modal
+  supplies reproducible SM 8.6 cloud-GPU validation.
 
 ## 📋 System Requirements
 
 ### Hardware Requirements
-- **GPU (Optional)**: NVIDIA GPU with CUDA Compute Capability 6.0+ (RTX 20 series, GTX 1050Ti+, Tesla V100+)
+- **GPU**: Requirements are component-specific. DSpark has a validated Pascal
+  path; the checked-in Decode Kernels cloud build currently targets SM 8.6.
 - **CPU (Required)**: Any modern x86_64 processor
 - **RAM**: 4GB+ system memory (8GB+ recommended for large datasets)
 
 ### Software Requirements
-- **CUDA Toolkit** (Optional): Version 12.0+ for GPU acceleration
-- **Python**: 3.8+
-- **Dependencies**: numpy ≥1.19.0, scikit-learn ≥1.0.0; PyTorch ≥2.1 for DSpark
+- **CUDA Toolkit**: Match it to the installed PyTorch build. The recorded Modal
+  run used CUDA 12.8 and PyTorch 2.8.0.
+- **Python**: 3.10+ for Decode Kernels; legacy modules may have different bounds.
+- **Dependencies**: PyTorch ≥2.5 for Decode Kernels; PyTorch ≥2.1 for DSpark.
 
-### Supported Environments
-- **GPU-Accelerated**: Systems with CUDA-capable NVIDIA GPUs
-- **CPU-Only**: Any system (automatic fallback when CUDA unavailable)
-- **Cloud Platforms**: Google Colab, AWS, Azure, etc.
-- **Cross-Platform**: Linux, Windows, macOS
+Only Linux CUDA builds are currently validated. CPU PyTorch references are
+available for correctness, but they do not make the legacy CUDA modules
+cross-platform packages.
 
 ## 🛠️ Installation
 
@@ -68,11 +71,24 @@ cd DSpark
 ./install.sh
 ```
 
-The build process will:
-- Auto-detect CUDA availability and GPU architecture
-- Compile CUDA kernels when GPU is available
-- Create CPU fallback implementation when CUDA is unavailable
-- Generate optimized shared libraries with universal compatibility
+Build Decode Kernels separately on a CUDA development host:
+
+```bash
+cd decode_kernels
+python -m pip install --no-build-isolation .
+python -m pytest -q tests
+```
+
+Or use the authenticated Modal client from the repository root:
+
+```bash
+.venv/bin/python -m modal run modal/run_decode_gpu.py
+```
+
+See [Decode Kernels](./decode_kernels/README.md) for contracts and the
+machine-readable validation artifact. The detailed speedup figures, raw Nsight
+Systems captures, CUDA API/kernel analysis, and reproduction commands are in
+[the performance analysis](./artifacts/NSYS_PERFORMANCE_ANALYSIS.md).
 
 ## 🚀 Quick Start
 
@@ -229,12 +245,9 @@ flash_attention(
 )
 ```
 
-**Key Features:**
-- O(N) memory complexity instead of O(N²)
-- Full gradient support for training
-- PyTorch integration with `.backward()`
-- Numerical accuracy < 1e-6 vs standard attention
-- Works with all PyTorch optimizers (Adam, SGD, etc.)
+This is an educational FP32, fixed-head-dimension implementation. It is not the
+validated serving-attention path and should not be used as a production
+FlashAttention replacement.
 
 ### DSpark
 
@@ -284,10 +297,13 @@ svc_sigmoid = CudaSVC(kernel='sigmoid', gamma='scale', coef0=0.0)
 
 ### Current Status
 
-- **SVM**: Fully functional and ready for production use
-- **RF**: Fully functional and ready for production use
-- **FlashAttention**: Fully functional for training and inference (head_dim=64, FP32 only)
-- **DSpark**: CUDA inference primitives plus exact PyTorch fallback; integrate with a trained DSpark drafter
+- **Decode Kernels**: Validated research microkernels and benchmark foundation;
+  integrate and re-profile before deployment.
+- **DSpark**: Validated CUDA inference primitives plus exact PyTorch fallback;
+  a complete serving integration remains future work.
+- **SVM**: Incomplete solver prototype; it does not currently update SMO alphas.
+- **Random Forest**: Educational placeholder, not a trained forest.
+- **FlashAttention**: Educational fixed-shape FP32 prototype, not production-ready.
 
 **Note**: For production transformer workloads with advanced features (FP16, variable head dimensions, attention masks), consider using the official [FlashAttention](https://github.com/Dao-AILab/flash-attention) implementation. This implementation is ideal for learning, prototyping, and small-scale training.
 

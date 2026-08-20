@@ -1,0 +1,360 @@
+{
+  "created_at": "2026-08-20T17:57:56.075692+00:00",
+  "modal_gpu_request": "A10G",
+  "tests": "...........................s..............                               [100%]\n=========================== short test summary info ============================\nSKIPPED [1] ../opt/cuda_ml/decode_kernels/tests/test_cuda_ops.py:127: requires two CUDA devices\n41 passed, 1 skipped in 13.18s",
+  "benchmark": {
+    "schema_version": 1,
+    "metadata": {
+      "python": "3.11.13",
+      "platform": "Linux-4.19.0-gvisor-x86_64-with-glibc2.35",
+      "torch": "2.8.0+cu128",
+      "cuda_runtime": "12.8",
+      "cudnn": 91002,
+      "device": "NVIDIA A10",
+      "compute_capability": "8.6",
+      "multiprocessors": 72,
+      "total_memory_bytes": 23684841472,
+      "l2_cache_bytes": 6291456,
+      "driver_and_memory": "580.95.05, 23028 MiB"
+    },
+    "trace_provenance": "Representative decoder shapes based on common 7B-class GQA configurations; synthetic tensors, not captured production traffic.",
+    "timing": {
+      "warmup": 10,
+      "iterations": 50,
+      "method": "Device-only queued CUDA Event pairs behind an untimed GPU lead-in; p20/p50/p80; 64 MiB L2 flush before each cold-cache sample"
+    },
+    "results": [
+      {
+        "trace": {
+          "name": "residual_rms_decode_b1",
+          "op": "residual_rms_norm",
+          "tokens": 1,
+          "hidden": 4096,
+          "dtype": "float16"
+        },
+        "custom_warm": {
+          "first_call_us": 1017333.129,
+          "mean_us": 10.129919871687889,
+          "p20_us": 10.239999741315842,
+          "p50_us": 10.239999741315842,
+          "p80_us": 10.239999741315842,
+          "min_us": 9.216000325977802
+        },
+        "custom_cold_cache": {
+          "first_call_us": 77.614,
+          "mean_us": 24.553600139915943,
+          "p20_us": 16.383999958634377,
+          "p50_us": 17.216000705957413,
+          "p80_us": 17.40800030529499,
+          "min_us": 16.383999958634377
+        },
+        "reference_warm": {
+          "first_call_us": 106633.01,
+          "mean_us": 29.61920067667961,
+          "p20_us": 29.69600073993206,
+          "p50_us": 29.69600073993206,
+          "p80_us": 29.69600073993206,
+          "min_us": 28.672000393271446
+        },
+        "speedup_p50": 2.9000001455191557,
+        "estimated_bytes": 40960,
+        "effective_bandwidth_gbps": 4.000000101048502
+      },
+      {
+        "trace": {
+          "name": "residual_rms_decode_b32",
+          "op": "residual_rms_norm",
+          "tokens": 32,
+          "hidden": 4096,
+          "dtype": "float16"
+        },
+        "custom_warm": {
+          "first_call_us": 138.739,
+          "mean_us": 10.129279792308807,
+          "p20_us": 10.239999741315842,
+          "p50_us": 10.239999741315842,
+          "p80_us": 10.239999741315842,
+          "min_us": 9.216000325977802
+        },
+        "custom_cold_cache": {
+          "first_call_us": 76.713,
+          "mean_us": 17.30816025286913,
+          "p20_us": 17.40800030529499,
+          "p50_us": 17.40800030529499,
+          "p80_us": 17.40800030529499,
+          "min_us": 16.383999958634377
+        },
+        "reference_warm": {
+          "first_call_us": 881.939,
+          "mean_us": 39.26015838980675,
+          "p20_us": 38.91199827194214,
+          "p50_us": 38.91199827194214,
+          "p80_us": 39.93599861860275,
+          "min_us": 38.91199827194214
+        },
+        "speedup_p50": 3.799999927240422,
+        "estimated_bytes": 1056768,
+        "effective_bandwidth_gbps": 103.20000260705135
+      },
+      {
+        "trace": {
+          "name": "rms_quant_decode_b32",
+          "op": "rms_norm_quantize",
+          "tokens": 32,
+          "hidden": 4096,
+          "dtype": "float16"
+        },
+        "custom_warm": {
+          "first_call_us": 259.547,
+          "mean_us": 11.474560163915157,
+          "p20_us": 11.264000087976456,
+          "p50_us": 11.264000087976456,
+          "p80_us": 11.552000418305397,
+          "min_us": 11.264000087976456
+        },
+        "custom_cold_cache": {
+          "first_call_us": 62.41,
+          "mean_us": 18.25920045375824,
+          "p20_us": 17.40800030529499,
+          "p50_us": 18.432000651955605,
+          "p80_us": 18.432000651955605,
+          "min_us": 17.40800030529499
+        },
+        "reference_warm": {
+          "first_call_us": 60530.257,
+          "mean_us": 62.42047920823097,
+          "p20_us": 62.463998794555664,
+          "p50_us": 62.463998794555664,
+          "p80_us": 62.49599903821945,
+          "min_us": 61.43999844789505
+        },
+        "speedup_p50": 5.545454395124844,
+        "estimated_bytes": 401408,
+        "effective_bandwidth_gbps": 35.63636335802904
+      },
+      {
+        "trace": {
+          "name": "rope_gqa_decode_b32",
+          "op": "rope_qk_norm",
+          "batch": 32,
+          "sequence": 1,
+          "q_heads": 32,
+          "kv_heads": 8,
+          "head_dim": 128,
+          "dtype": "float16"
+        },
+        "custom_warm": {
+          "first_call_us": 276.208,
+          "mean_us": 10.341759771108627,
+          "p20_us": 10.239999741315842,
+          "p50_us": 10.239999741315842,
+          "p80_us": 10.239999741315842,
+          "min_us": 10.239999741315842
+        },
+        "custom_cold_cache": {
+          "first_call_us": 105.546,
+          "mean_us": 11.486080158501863,
+          "p20_us": 11.264000087976456,
+          "p50_us": 11.264000087976456,
+          "p80_us": 12.256000190973282,
+          "min_us": 10.239999741315842
+        },
+        "reference_warm": {
+          "first_call_us": 11293.743,
+          "mean_us": 197.55647778511047,
+          "p20_us": 101.3759970664978,
+          "p50_us": 101.3759970664978,
+          "p80_us": 367.6159977912903,
+          "min_us": 100.35199671983719
+        },
+        "speedup_p50": 9.89999996362021,
+        "estimated_bytes": 656128,
+        "effective_bandwidth_gbps": 64.07500161867068
+      },
+      {
+        "trace": {
+          "name": "kv_append_decode_b32",
+          "op": "kv_cache_append",
+          "tokens": 32,
+          "capacity": 4096,
+          "kv_heads": 8,
+          "head_dim": 128,
+          "dtype": "float16"
+        },
+        "custom_warm": {
+          "first_call_us": 252.698,
+          "mean_us": 3.8412800058722496,
+          "p20_us": 3.0720001086592674,
+          "p50_us": 4.095999989658594,
+          "p80_us": 4.095999989658594,
+          "min_us": 3.0720001086592674
+        },
+        "custom_cold_cache": {
+          "first_call_us": 87.344,
+          "mean_us": 5.006079897284508,
+          "p20_us": 5.119999870657921,
+          "p50_us": 5.119999870657921,
+          "p80_us": 5.119999870657921,
+          "min_us": 4.095999989658594
+        },
+        "reference_warm": {
+          "first_call_us": 54553.263,
+          "mean_us": 169.49376046657562,
+          "p20_us": 163.83999586105347,
+          "p50_us": 167.1680063009262,
+          "p80_us": 171.87200486660004,
+          "min_us": 162.9440039396286
+        },
+        "speedup_p50": 40.81250164135373,
+        "estimated_bytes": 262400,
+        "effective_bandwidth_gbps": 64.06250016174226
+      },
+      {
+        "trace": {
+          "name": "swiglu_decode_b1",
+          "op": "bias_swiglu",
+          "tokens": 1,
+          "hidden": 11008,
+          "dtype": "float16"
+        },
+        "custom_warm": {
+          "first_call_us": 231.178,
+          "mean_us": 3.5968000208958983,
+          "p20_us": 3.0720001086592674,
+          "p50_us": 3.3599999733269215,
+          "p80_us": 4.095999989658594,
+          "min_us": 3.0720001086592674
+        },
+        "custom_cold_cache": {
+          "first_call_us": 51.663,
+          "mean_us": 4.6246399357914925,
+          "p20_us": 4.095999989658594,
+          "p50_us": 4.095999989658594,
+          "p80_us": 5.119999870657921,
+          "min_us": 4.095999989658594
+        },
+        "reference_warm": {
+          "first_call_us": 7972.404,
+          "mean_us": 24.45568073540926,
+          "p20_us": 24.57600086927414,
+          "p50_us": 24.57600086927414,
+          "p80_us": 24.57600086927414,
+          "min_us": 23.552000522613525
+        },
+        "speedup_p50": 7.314286031062102,
+        "estimated_bytes": 110080,
+        "effective_bandwidth_gbps": 32.7619050219824
+      },
+      {
+        "trace": {
+          "name": "swiglu_decode_b32",
+          "op": "bias_swiglu",
+          "tokens": 32,
+          "hidden": 11008,
+          "dtype": "float16"
+        },
+        "custom_warm": {
+          "first_call_us": 136.183,
+          "mean_us": 5.700480071827769,
+          "p20_us": 5.119999870657921,
+          "p50_us": 6.144000217318535,
+          "p80_us": 6.144000217318535,
+          "min_us": 5.119999870657921
+        },
+        "custom_cold_cache": {
+          "first_call_us": 119.594,
+          "mean_us": 9.655040092766285,
+          "p20_us": 9.216000325977802,
+          "p50_us": 9.216000325977802,
+          "p80_us": 10.239999741315842,
+          "min_us": 9.216000325977802
+        },
+        "reference_warm": {
+          "first_call_us": 288.776,
+          "mean_us": 39.87455867230892,
+          "p20_us": 38.91199827194214,
+          "p50_us": 39.93599861860275,
+          "p80_us": 39.93599861860275,
+          "min_us": 37.88800165057182
+        },
+        "speedup_p50": 6.499999545252665,
+        "estimated_bytes": 2157568,
+        "effective_bandwidth_gbps": 351.16665424560176
+      },
+      {
+        "trace": {
+          "name": "sampling_decode_b32",
+          "op": "sample_logits",
+          "tokens": 32,
+          "vocabulary": 32000,
+          "top_k": 50,
+          "top_p": 0.95,
+          "min_p": 0.02,
+          "dtype": "float16"
+        },
+        "custom_warm": {
+          "first_call_us": 176349.264,
+          "mean_us": 177.12639957666397,
+          "p20_us": 162.81600296497345,
+          "p50_us": 163.83999586105347,
+          "p80_us": 164.86400365829468,
+          "min_us": 162.81600296497345
+        },
+        "custom_cold_cache": {
+          "first_call_us": 342.248,
+          "mean_us": 164.98560070991516,
+          "p20_us": 164.86400365829468,
+          "p50_us": 164.86400365829468,
+          "p80_us": 165.8879965543747,
+          "min_us": 163.83999586105347
+        },
+        "reference_warm": {
+          "first_call_us": 402.959,
+          "mean_us": 185.56863874197006,
+          "p20_us": 162.81600296497345,
+          "p50_us": 163.83999586105347,
+          "p80_us": 163.83999586105347,
+          "min_us": 162.81600296497345
+        },
+        "speedup_p50": 1.0
+      },
+      {
+        "trace": {
+          "name": "small_n_linear_b1",
+          "op": "small_n_linear",
+          "tokens": 1,
+          "input_features": 4096,
+          "output_features": 4096,
+          "dtype": "float16"
+        },
+        "custom_warm": {
+          "first_call_us": 236680.074,
+          "mean_us": 77.63967841863632,
+          "p20_us": 76.80000364780426,
+          "p50_us": 77.82399654388428,
+          "p80_us": 77.82399654388428,
+          "min_us": 74.75200295448303
+        },
+        "custom_cold_cache": {
+          "first_call_us": 145.459,
+          "mean_us": 85.00735893845558,
+          "p20_us": 83.96799862384796,
+          "p50_us": 84.99199897050858,
+          "p80_us": 86.01599931716919,
+          "min_us": 82.94399827718735
+        },
+        "reference_warm": {
+          "first_call_us": 121.001,
+          "mean_us": 77.58975923061371,
+          "p20_us": 76.80000364780426,
+          "p50_us": 77.82399654388428,
+          "p80_us": 77.82399654388428,
+          "min_us": 75.77600330114365
+        },
+        "speedup_p50": 1.0,
+        "estimated_bytes": 33579008,
+        "effective_bandwidth_gbps": 431.4737033720067
+      }
+    ]
+  }
+}
