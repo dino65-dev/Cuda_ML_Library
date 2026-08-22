@@ -245,3 +245,86 @@ bias_swiglu.register_autograd(_swiglu_backward, setup_context=_swiglu_setup_cont
 
 small_n_linear = reference.small_n_linear
 sample_logits = reference.sample_logits
+
+
+@torch.library.custom_op(
+    "cuda_ml::paged_kv_append",
+    mutates_args=("key_cache", "value_cache", "key_scales", "value_scales"),
+    device_types="cuda",
+)
+def paged_kv_append_raw(
+    key_cache: Tensor,
+    value_cache: Tensor,
+    key_scales: Tensor,
+    value_scales: Tensor,
+    block_tables: Tensor,
+    positions: Tensor,
+    key: Tensor,
+    value: Tensor,
+) -> None:
+    _require_cuda_extension().paged_kv_append(
+        key_cache, value_cache, key_scales, value_scales,
+        block_tables, positions, key, value,
+    )
+
+
+@paged_kv_append_raw.register_kernel("cpu")
+def _paged_kv_append_cpu(
+    key_cache: Tensor, value_cache: Tensor, key_scales: Tensor,
+    value_scales: Tensor, block_tables: Tensor, positions: Tensor,
+    key: Tensor, value: Tensor,
+) -> None:
+    reference.paged_kv_append(
+        key_cache, value_cache, key_scales, value_scales,
+        block_tables, positions, key, value,
+    )
+
+
+@paged_kv_append_raw.register_fake
+def _paged_kv_append_fake(*args) -> None:
+    return None
+
+
+@torch.library.custom_op(
+    "cuda_ml::paged_decode_attention",
+    mutates_args=("partial_output", "partial_max", "partial_sum", "output"),
+    device_types="cuda",
+)
+def paged_decode_attention_raw(
+    query: Tensor,
+    key_cache: Tensor,
+    value_cache: Tensor,
+    key_scales: Tensor,
+    value_scales: Tensor,
+    block_tables: Tensor,
+    sequence_lengths: Tensor,
+    partial_output: Tensor,
+    partial_max: Tensor,
+    partial_sum: Tensor,
+    output: Tensor,
+    num_splits: int,
+    scale: float,
+) -> None:
+    _require_cuda_extension().paged_decode_attention(
+        query, key_cache, value_cache, key_scales, value_scales,
+        block_tables, sequence_lengths, partial_output, partial_max,
+        partial_sum, output, num_splits, scale,
+    )
+
+
+@paged_decode_attention_raw.register_kernel("cpu")
+def _paged_decode_attention_cpu(
+    query: Tensor, key_cache: Tensor, value_cache: Tensor,
+    key_scales: Tensor, value_scales: Tensor, block_tables: Tensor,
+    sequence_lengths: Tensor, partial_output: Tensor, partial_max: Tensor,
+    partial_sum: Tensor, output: Tensor, num_splits: int, scale: float,
+) -> None:
+    reference.paged_decode_attention_out(
+        query, key_cache, value_cache, key_scales, value_scales,
+        block_tables, sequence_lengths, output, scale,
+    )
+
+
+@paged_decode_attention_raw.register_fake
+def _paged_decode_attention_fake(*args) -> None:
+    return None

@@ -17,6 +17,11 @@ DeepSpec training/evaluation stack. Use a trained DSpark drafter (or the
 official checkpoints) to produce base logits and conditional confidence logits,
 then pass those tensors to these primitives.
 
+The Rank 4 serving layer also includes fused greedy correction, fixed-shape
+CUDA Graph wrappers for the sequential draft block and scheduler, exact target
+prefix verification and bonus-token emission, acceptance/waste/throughput
+metrics, prompt lookup candidates, and real DeepSpec state-dict loading.
+
 ## Kernel design
 
 ### Markov logit correction
@@ -160,6 +165,41 @@ head.load_deepspec_(
     official_model.markov_head.markov_w2.weight,
 )
 ```
+
+Saved state dictionaries can be loaded without the DeepSpec model wrapper:
+
+```python
+from DSpark import load_deepspec_checkpoint
+load_deepspec_checkpoint(head, "/models/deepspec-dspark/state_dict.pt")
+```
+
+## Graph-captured speculative serving
+
+```python
+from DSpark import DSparkGreedyGraph, DSparkSchedulerGraph, DSparkSpeculativeEngine
+
+draft_graph = DSparkGreedyGraph(
+    head, batch=requests, proposal_length=7, dtype=torch.float16,
+)
+draft = draft_graph.replay(parallel_logits, previous_ids)
+
+scheduler_graph = DSparkSchedulerGraph(
+    scheduler, requests=requests, device="cuda", dtype=torch.float16,
+)
+admission = scheduler_graph.replay(confidence_logits, step_curve)
+
+# target_tokens is [requests, K + 1]: target choices plus a bonus token.
+engine = DSparkSpeculativeEngine(head, scheduler)
+step = engine.step(
+    parallel_logits, previous_ids, confidence_logits, target_tokens, step_curve,
+)
+print(step.metrics.mean_acceptance_length, step.metrics.verification_waste)
+```
+
+The target model remains an external serving-engine concern. EAGLE 3.1,
+DFlash, and PFlash comparisons require their checkpoints/runtimes and must use
+the same target, prompts, batching, and concurrency harness; this repository
+does not invent cross-method numbers when those assets are absent.
 
 ## Validate and benchmark
 

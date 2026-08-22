@@ -1,0 +1,16 @@
+{
+  "gpu": "NVIDIA GeForce GTX 1050 Ti",
+  "compute_capability": [6, 1],
+  "torch": "2.7.1+cu118",
+  "warmup": 8,
+  "iterations": 30,
+  "records": [
+    {"family":"rank3_paged_decode","variant":"paged_fp16","sequence":128,"batch":1,"query_heads":8,"kv_heads":2,"head_dim":64,"splits":1,"latency_us":205.02933710813522,"dense_sdpa_latency_us":703.3173302809397,"speedup_vs_dense_sdpa":3.430325338807493},
+    {"family":"rank3_paged_decode","variant":"paged_int8","sequence":128,"batch":1,"query_heads":8,"kv_heads":2,"head_dim":64,"splits":1,"latency_us":163.4645332892736,"dense_sdpa_latency_us":703.3173302809397,"speedup_vs_dense_sdpa":4.302568368370895},
+    {"family":"rank3_paged_decode","variant":"paged_fp16","sequence":512,"batch":1,"query_heads":8,"kv_heads":2,"head_dim":64,"splits":2,"latency_us":340.8874710400899,"dense_sdpa_latency_us":2650.3156820933023,"speedup_vs_dense_sdpa":7.7747523955833895},
+    {"family":"rank3_paged_decode","variant":"paged_int8","sequence":512,"batch":1,"query_heads":8,"kv_heads":2,"head_dim":64,"splits":2,"latency_us":336.55466735363007,"dense_sdpa_latency_us":2650.3156820933023,"speedup_vs_dense_sdpa":7.874844532488746},
+    {"family":"rank3_paged_decode","variant":"paged_fp16","sequence":2048,"batch":1,"query_heads":8,"kv_heads":2,"head_dim":64,"splits":8,"latency_us":338.09066116809845,"dense_sdpa_latency_us":8824.763711293539,"speedup_vs_dense_sdpa":26.10176714377175},
+    {"family":"rank3_paged_decode","variant":"paged_int8","sequence":2048,"batch":1,"query_heads":8,"kv_heads":2,"head_dim":64,"splits":8,"latency_us":299.24586911996204,"dense_sdpa_latency_us":8824.763711293539,"speedup_vs_dense_sdpa":29.490010128613864},
+    {"family":"rank4_dspark_block","variant":"cuda_graph_replay","batch":1,"proposal_length":7,"vocab":4096,"rank":64,"latency_us":509.59999958674115,"eager_latency_us":510.441596309344,"speedup_vs_eager":1.0016514849358031}
+  ]
+}

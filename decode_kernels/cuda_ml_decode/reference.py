@@ -146,3 +146,86 @@ def sample_logits(
     cumulative = probabilities.cumsum(dim=-1)
     selected = (cumulative < uniforms.float().unsqueeze(-1)).sum(dim=-1).clamp_max(keep - 1)
     return sorted_indices.gather(-1, selected.unsqueeze(-1)).squeeze(-1)
+
+
+def paged_kv_append(
+    key_cache: Tensor,
+    value_cache: Tensor,
+    key_scales: Tensor,
+    value_scales: Tensor,
+    block_tables: Tensor,
+    positions: Tensor,
+    key: Tensor,
+    value: Tensor,
+) -> None:
+    """Reference page-table append; negative positions are inactive rows."""
+    block_size = key_cache.shape[1]
+    quantized = key_cache.dtype == torch.int8
+    for request in range(key.shape[0]):
+        position = int(positions[request])
+        if position < 0:
+            continue
+        logical_block, offset = divmod(position, block_size)
+        if logical_block >= block_tables.shape[1]:
+            continue
+        physical_block = int(block_tables[request, logical_block])
+        if not 0 <= physical_block < key_cache.shape[0]:
+            continue
+        if quantized:
+            k_scale = key[request].float().abs().amax(-1).div(127).clamp_min(1e-12)
+            v_scale = value[request].float().abs().amax(-1).div(127).clamp_min(1e-12)
+            key_scales[physical_block, offset].copy_(k_scale)
+            value_scales[physical_block, offset].copy_(v_scale)
+            key_cache[physical_block, offset].copy_(
+                (key[request].float() / k_scale[:, None]).round().clamp(-127, 127).to(torch.int8)
+            )
+            value_cache[physical_block, offset].copy_(
+                (value[request].float() / v_scale[:, None]).round().clamp(-127, 127).to(torch.int8)
+            )
+        else:
+            key_cache[physical_block, offset].copy_(key[request])
+            value_cache[physical_block, offset].copy_(value[request])
+
+
+def paged_decode_attention_out(
+    query: Tensor,
+    key_cache: Tensor,
+    value_cache: Tensor,
+    key_scales: Tensor,
+    value_scales: Tensor,
+    block_tables: Tensor,
+    sequence_lengths: Tensor,
+    output: Tensor,
+    scale: float,
+) -> None:
+    """High-precision logical-cache reference for ragged MHA/GQA/MQA decode."""
+    batch, query_heads, head_dim = query.shape
+    kv_heads = key_cache.shape[2]
+    group_size = query_heads // kv_heads
+    block_size = key_cache.shape[1]
+    output.zero_()
+    for request in range(batch):
+        length = int(sequence_lengths[request])
+        if length <= 0:
+            continue
+        for query_head in range(query_heads):
+            kv_head = query_head // group_size
+            keys, values = [], []
+            for position in range(length):
+                logical_block, offset = divmod(position, block_size)
+                physical_block = int(block_tables[request, logical_block])
+                key_row = key_cache[physical_block, offset, kv_head].float()
+                value_row = value_cache[physical_block, offset, kv_head].float()
+                if key_cache.dtype == torch.int8:
+                    key_row = key_row * key_scales[physical_block, offset, kv_head]
+                    value_row = value_row * value_scales[physical_block, offset, kv_head]
+                keys.append(key_row)
+                values.append(value_row)
+            logical_key = torch.stack(keys)
+            logical_value = torch.stack(values)
+            probabilities = torch.softmax(
+                logical_key @ query[request, query_head].float() * scale, dim=0
+            )
+            output[request, query_head].copy_(
+                (probabilities[:, None] * logical_value).sum(0).to(output.dtype)
+            )

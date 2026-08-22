@@ -9,6 +9,12 @@ from .ops import (
     sample_logits,
     small_n_linear,
 )
+from .paged_attention import (
+    PagedDecodeWorkspace,
+    PagedKVCache,
+    paged_decode_attention,
+    prefill_attention,
+)
 
 __all__ = [
     "bias_swiglu",
@@ -18,6 +24,10 @@ __all__ = [
     "rope_qk_norm",
     "sample_logits",
     "small_n_linear",
+    "PagedDecodeWorkspace",
+    "PagedKVCache",
+    "paged_decode_attention",
+    "prefill_attention",
 ]
 
 __version__ = "0.1.0"

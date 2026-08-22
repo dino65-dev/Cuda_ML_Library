@@ -26,6 +26,37 @@ The last two APIs intentionally remain visible PyTorch compositions. This keeps
 `torch.compile` able to optimize them and avoids claiming a specialized kernel
 before trace measurements establish a crossover against cuBLAS/ATen.
 
+## Rank 3 paged/ragged decode attention
+
+`PagedKVCache` stores KV as `[physical_block, token, kv_head, head_dim]` with
+per-request block tables and device-resident sequence lengths. The single-token
+decode kernel supports MHA/GQA/MQA, variable lengths, 1–64 split-KV partitions,
+stable log-sum-exp reduction, separate append/attention, and floating or
+per-token/per-head INT8 KV pages. `PagedDecodeWorkspace` makes partial values,
+maxima, sums, and output caller-owned for allocation-free CUDA Graph replay.
+
+`prefill_attention` is an explicit dense PyTorch SDPA API; prefill is never
+routed through the decode kernel. Page allocation, eviction, and compaction are
+serving-engine policy, while this package owns page layout, quantizing append,
+attention, and explicit length advance.
+
+```python
+cache = PagedKVCache.allocate(
+    num_blocks=256, block_size=16, kv_heads=2, head_dim=64,
+    block_tables=block_tables, sequence_lengths=lengths,
+    dtype=torch.float16, quantized=False,
+)
+workspace = PagedDecodeWorkspace.allocate(
+    batch, 8, 64, 4, device="cuda", dtype=torch.float16,
+)
+cache.append(new_key, new_value)
+output = paged_decode_attention(query, cache, workspace, num_splits=4)
+cache.advance_()
+```
+
+The portable path supports head dimensions through 256 and is validated on SM
+6.1. Architecture-specific Ampere/Hopper backends can preserve this contract.
+
 ## Correctness policy
 
 - FP32: `rtol=atol=2e-5`.
@@ -61,8 +92,12 @@ bytes, and effective bandwidth.
 
 The full visual and profiler analysis is checked in at
 [`artifacts/NSYS_PERFORMANCE_ANALYSIS.md`](../artifacts/NSYS_PERFORMANCE_ANALYSIS.md).
-It includes nine reproducible PNG/SVG graphs and the native `.nsys-rep`, SQLite,
+It includes reproducible PNG/SVG graphs and the native `.nsys-rep`, SQLite,
 CSV, and derived JSON evidence behind them.
+
+Rank 3/4 evidence and limitations are documented separately in
+[`artifacts/RANK34_NSYS_ANALYSIS.md`](../artifacts/RANK34_NSYS_ANALYSIS.md),
+including seven additional editable graphs and a dedicated physical Nsight trace.
 
 Modal supplies the A10 correctness/latency run and a real CUDA API/NVTX Nsight
 trace. Modal's gVisor environment did not expose GPU workload activities to

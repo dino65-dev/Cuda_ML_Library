@@ -50,7 +50,10 @@ def schedule_reference(
     # a later equal-probability position from the same request.
     order = torch.argsort(flat_survival, descending=True, stable=True)
     sorted_survival = flat_survival[order]
-    prefix_sums = sorted_survival.cumsum(dim=0)
+    # Admission uses FP64 accumulation even when the logits are FP16/FP32.
+    # Strict first-drop decisions must not depend on whether adding a tiny
+    # positive survival probability rounds away beside a large request count.
+    prefix_sums_double = sorted_survival.double().cumsum(dim=0)
 
     candidate_count = flat_survival.numel()
     candidate_index = torch.arange(
@@ -59,9 +62,9 @@ def schedule_reference(
         device=confidence_logits.device,
         dtype=torch.long,
     )
-    expected = float(request_count) + prefix_sums
-    throughputs = expected * step_curve[request_count + candidate_index]
-    baseline = step_curve.new_tensor(float(request_count)) * step_curve[request_count]
+    expected = float(request_count) + prefix_sums_double
+    throughputs = expected * step_curve[request_count + candidate_index].double()
+    baseline = step_curve.new_tensor(float(request_count), dtype=torch.float64) * step_curve[request_count]
     previous = torch.cat([baseline.reshape(1), throughputs[:-1]])
     drops = ~(throughputs > previous)
 
@@ -97,12 +100,12 @@ def schedule_reference(
         include_self=True,
     )
 
-    selected_prefix = prefix_sums[(selected_count_long - 1).clamp_min(0)]
+    selected_prefix = prefix_sums_double[(selected_count_long - 1).clamp_min(0)]
     final_expected = torch.where(
         selected_count_long > 0,
         selected_prefix + float(request_count),
-        prefix_sums.new_tensor(float(request_count)),
-    ).reshape(1)
+        prefix_sums_double.new_tensor(float(request_count)),
+    ).to(torch.float32).reshape(1)
     final_throughput = (
         final_expected * step_curve[request_count + selected_count_long]
     ).reshape(1)

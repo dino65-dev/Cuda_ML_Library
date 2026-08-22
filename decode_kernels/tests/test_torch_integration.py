@@ -56,6 +56,8 @@ def test_opcheck(operator):
 def test_torch_compile_fullgraph():
     if not hasattr(torch, "compile"):
         pytest.skip("torch.compile unavailable")
+    if torch.cuda.get_device_capability()[0] < 7:
+        pytest.skip("PyTorch Inductor/Triton does not support pre-Volta GPUs")
 
     def function(input, residual, weight):
         normalized, residual_out = ops.residual_rms_norm(input, residual, weight)

@@ -1,0 +1,461 @@
+{
+  "created_at": "2026-08-22T05:25:43.383372+00:00",
+  "modal_gpu_request": "A10G",
+  "tests": "...........................s..................................           [100%]\n=========================== short test summary info ============================\nSKIPPED [1] ../opt/cuda_ml/decode_kernels/tests/test_cuda_ops.py:127: requires two CUDA devices\n61 passed, 1 skipped in 12.95s",
+  "benchmark": {
+    "schema_version": 1,
+    "metadata": {
+      "python": "3.11.13",
+      "platform": "Linux-4.19.0-gvisor-x86_64-with-glibc2.35",
+      "torch": "2.8.0+cu128",
+      "cuda_runtime": "12.8",
+      "cudnn": 91002,
+      "device": "NVIDIA A10",
+      "compute_capability": "8.6",
+      "multiprocessors": 72,
+      "total_memory_bytes": 23684841472,
+      "l2_cache_bytes": 6291456,
+      "driver_and_memory": "580.95.05, 23028 MiB"
+    },
+    "trace_provenance": "Representative decoder shapes based on common 7B-class GQA configurations; synthetic tensors, not captured production traffic.",
+    "timing": {
+      "warmup": 10,
+      "iterations": 30,
+      "method": "Device-only queued CUDA Event pairs behind an untimed GPU lead-in; p20/p50/p80; 64 MiB L2 flush before each cold-cache sample"
+    },
+    "results": [
+      {
+        "trace": {
+          "name": "residual_rms_decode_b1",
+          "op": "residual_rms_norm",
+          "tokens": 1,
+          "hidden": 4096,
+          "dtype": "float16"
+        },
+        "custom_warm": {
+          "first_call_us": 1022745.79,
+          "mean_us": 9.932799947758516,
+          "p20_us": 9.216000325977802,
+          "p50_us": 10.239999741315842,
+          "p80_us": 10.239999741315842,
+          "min_us": 9.216000325977802
+        },
+        "custom_cold_cache": {
+          "first_call_us": 84.191,
+          "mean_us": 20.913066901266575,
+          "p20_us": 16.383999958634377,
+          "p50_us": 16.383999958634377,
+          "p80_us": 17.40800030529499,
+          "min_us": 16.383999958634377
+        },
+        "reference_warm": {
+          "first_call_us": 105667.045,
+          "mean_us": 29.86666715393464,
+          "p20_us": 29.69600073993206,
+          "p50_us": 29.69600073993206,
+          "p80_us": 29.69600073993206,
+          "min_us": 29.69600073993206
+        },
+        "speedup_p50": 2.9000001455191557,
+        "estimated_bytes": 40960,
+        "effective_bandwidth_gbps": 4.000000101048502
+      },
+      {
+        "trace": {
+          "name": "residual_rms_decode_b32",
+          "op": "residual_rms_norm",
+          "tokens": 32,
+          "hidden": 4096,
+          "dtype": "float16"
+        },
+        "custom_warm": {
+          "first_call_us": 160.014,
+          "mean_us": 10.142933142681917,
+          "p20_us": 10.239999741315842,
+          "p50_us": 10.239999741315842,
+          "p80_us": 10.239999741315842,
+          "min_us": 9.216000325977802
+        },
+        "custom_cold_cache": {
+          "first_call_us": 71.118,
+          "mean_us": 17.376000247895718,
+          "p20_us": 17.343999817967415,
+          "p50_us": 17.40800030529499,
+          "p80_us": 17.40800030529499,
+          "min_us": 16.383999958634377
+        },
+        "reference_warm": {
+          "first_call_us": 1063.09,
+          "mean_us": 39.4218652198712,
+          "p20_us": 38.91199827194214,
+          "p50_us": 38.91199827194214,
+          "p80_us": 39.93599861860275,
+          "min_us": 38.91199827194214
+        },
+        "speedup_p50": 3.799999927240422,
+        "estimated_bytes": 1056768,
+        "effective_bandwidth_gbps": 103.20000260705135
+      },
+      {
+        "trace": {
+          "name": "rms_quant_decode_b32",
+          "op": "rms_norm_quantize",
+          "tokens": 32,
+          "hidden": 4096,
+          "dtype": "float16"
+        },
+        "custom_warm": {
+          "first_call_us": 245.852,
+          "mean_us": 11.468800157308578,
+          "p20_us": 11.264000087976456,
+          "p50_us": 11.264000087976456,
+          "p80_us": 11.264000087976456,
+          "min_us": 11.264000087976456
+        },
+        "custom_cold_cache": {
+          "first_call_us": 62.954,
+          "mean_us": 18.162133855124313,
+          "p20_us": 17.40800030529499,
+          "p50_us": 18.432000651955605,
+          "p80_us": 18.432000651955605,
+          "min_us": 17.40800030529499
+        },
+        "reference_warm": {
+          "first_call_us": 57840.65,
+          "mean_us": 62.97599896788597,
+          "p20_us": 62.463998794555664,
+          "p50_us": 62.463998794555664,
+          "p80_us": 63.48799914121628,
+          "min_us": 62.463998794555664
+        },
+        "speedup_p50": 5.545454395124844,
+        "estimated_bytes": 401408,
+        "effective_bandwidth_gbps": 35.63636335802904
+      },
+      {
+        "trace": {
+          "name": "rope_gqa_decode_b32",
+          "op": "rope_qk_norm",
+          "batch": 32,
+          "sequence": 1,
+          "q_heads": 32,
+          "kv_heads": 8,
+          "head_dim": 128,
+          "dtype": "float16"
+        },
+        "custom_warm": {
+          "first_call_us": 248.16,
+          "mean_us": 10.249599752326807,
+          "p20_us": 10.239999741315842,
+          "p50_us": 10.239999741315842,
+          "p80_us": 10.239999741315842,
+          "min_us": 10.239999741315842
+        },
+        "custom_cold_cache": {
+          "first_call_us": 60.439,
+          "mean_us": 11.367466766387224,
+          "p20_us": 11.264000087976456,
+          "p50_us": 11.264000087976456,
+          "p80_us": 11.264000087976456,
+          "min_us": 10.528000071644783
+        },
+        "reference_warm": {
+          "first_call_us": 13895.35,
+          "mean_us": 102.46826410293579,
+          "p20_us": 102.39999741315842,
+          "p50_us": 102.39999741315842,
+          "p80_us": 102.39999741315842,
+          "min_us": 101.3759970664978
+        },
+        "speedup_p50": 10.0,
+        "estimated_bytes": 656128,
+        "effective_bandwidth_gbps": 64.07500161867068
+      },
+      {
+        "trace": {
+          "name": "kv_append_decode_b32",
+          "op": "kv_cache_append",
+          "tokens": 32,
+          "capacity": 4096,
+          "kv_heads": 8,
+          "head_dim": 128,
+          "dtype": "float16"
+        },
+        "custom_warm": {
+          "first_call_us": 249.103,
+          "mean_us": 3.7706666781256595,
+          "p20_us": 3.0720001086592674,
+          "p50_us": 4.095999989658594,
+          "p80_us": 4.095999989658594,
+          "min_us": 3.0720001086592674
+        },
+        "custom_cold_cache": {
+          "first_call_us": 87.323,
+          "mean_us": 5.017599898080031,
+          "p20_us": 5.119999870657921,
+          "p50_us": 5.119999870657921,
+          "p80_us": 5.119999870657921,
+          "min_us": 4.095999989658594
+        },
+        "reference_warm": {
+          "first_call_us": 53098.483,
+          "mean_us": 191.8346663316091,
+          "p20_us": 183.29599499702454,
+          "p50_us": 189.31199610233307,
+          "p80_us": 194.46399807929993,
+          "min_us": 181.2479943037033
+        },
+        "speedup_p50": 46.218749165112285,
+        "estimated_bytes": 262400,
+        "effective_bandwidth_gbps": 64.06250016174226
+      },
+      {
+        "trace": {
+          "name": "swiglu_decode_b1",
+          "op": "bias_swiglu",
+          "tokens": 1,
+          "hidden": 11008,
+          "dtype": "float16"
+        },
+        "custom_warm": {
+          "first_call_us": 276.778,
+          "mean_us": 3.5530667131145797,
+          "p20_us": 3.0720001086592674,
+          "p50_us": 3.0720001086592674,
+          "p80_us": 4.095999989658594,
+          "min_us": 3.0720001086592674
+        },
+        "custom_cold_cache": {
+          "first_call_us": 70.291,
+          "mean_us": 4.6143999478469295,
+          "p20_us": 4.095999989658594,
+          "p50_us": 4.800000227987766,
+          "p80_us": 5.119999870657921,
+          "min_us": 4.000000189989805
+        },
+        "reference_warm": {
+          "first_call_us": 7215.915,
+          "mean_us": 24.40533408274253,
+          "p20_us": 23.552000522613525,
+          "p50_us": 24.57600086927414,
+          "p80_us": 24.57600086927414,
+          "min_us": 23.552000522613525
+        },
+        "speedup_p50": 8.0,
+        "estimated_bytes": 110080,
+        "effective_bandwidth_gbps": 35.833332065877734
+      },
+      {
+        "trace": {
+          "name": "swiglu_decode_b32",
+          "op": "bias_swiglu",
+          "tokens": 32,
+          "hidden": 11008,
+          "dtype": "float16"
+        },
+        "custom_warm": {
+          "first_call_us": 142.083,
+          "mean_us": 5.737600087498625,
+          "p20_us": 5.119999870657921,
+          "p50_us": 6.144000217318535,
+          "p80_us": 6.144000217318535,
+          "min_us": 5.119999870657921
+        },
+        "custom_cold_cache": {
+          "first_call_us": 57.559,
+          "mean_us": 9.78666665032506,
+          "p20_us": 9.216000325977802,
+          "p50_us": 10.17600018531084,
+          "p80_us": 10.239999741315842,
+          "min_us": 9.216000325977802
+        },
+        "reference_warm": {
+          "first_call_us": 243.182,
+          "mean_us": 40.5045323073864,
+          "p20_us": 39.93599861860275,
+          "p50_us": 40.12800008058548,
+          "p80_us": 40.95999896526337,
+          "min_us": 39.93599861860275
+        },
+        "speedup_p50": 6.531249782100235,
+        "estimated_bytes": 2157568,
+        "effective_bandwidth_gbps": 351.16665424560176
+      },
+      {
+        "trace": {
+          "name": "sampling_decode_b32",
+          "op": "sample_logits",
+          "tokens": 32,
+          "vocabulary": 32000,
+          "top_k": 50,
+          "top_p": 0.95,
+          "min_p": 0.02,
+          "dtype": "float16"
+        },
+        "custom_warm": {
+          "first_call_us": 166499.849,
+          "mean_us": 164.72746829191843,
+          "p20_us": 163.83999586105347,
+          "p50_us": 164.86400365829468,
+          "p80_us": 164.86400365829468,
+          "min_us": 163.83999586105347
+        },
+        "custom_cold_cache": {
+          "first_call_us": 356.928,
+          "mean_us": 165.98933190107346,
+          "p20_us": 165.8879965543747,
+          "p50_us": 165.8879965543747,
+          "p80_us": 165.8879965543747,
+          "min_us": 164.86400365829468
+        },
+        "reference_warm": {
+          "first_call_us": 346.775,
+          "mean_us": 164.56213345130286,
+          "p20_us": 163.83999586105347,
+          "p50_us": 164.86400365829468,
+          "p80_us": 164.86400365829468,
+          "min_us": 162.81600296497345
+        },
+        "speedup_p50": 1.0
+      },
+      {
+        "trace": {
+          "name": "small_n_linear_b1",
+          "op": "small_n_linear",
+          "tokens": 1,
+          "input_features": 4096,
+          "output_features": 4096,
+          "dtype": "float16"
+        },
+        "custom_warm": {
+          "first_call_us": 226739.98,
+          "mean_us": 78.13119788964589,
+          "p20_us": 77.82399654388428,
+          "p50_us": 77.82399654388428,
+          "p80_us": 78.84799689054489,
+          "min_us": 76.80000364780426
+        },
+        "custom_cold_cache": {
+          "first_call_us": 122.695,
+          "mean_us": 85.09119898080826,
+          "p20_us": 83.96799862384796,
+          "p50_us": 84.99199897050858,
+          "p80_us": 84.99199897050858,
+          "min_us": 82.94399827718735
+        },
+        "reference_warm": {
+          "first_call_us": 111.572,
+          "mean_us": 77.6383991042773,
+          "p20_us": 76.80000364780426,
+          "p50_us": 77.82399654388428,
+          "p80_us": 78.84799689054489,
+          "min_us": 75.93599706888199
+        },
+        "speedup_p50": 1.0,
+        "estimated_bytes": 33579008,
+        "effective_bandwidth_gbps": 431.4737033720067
+      }
+    ]
+  },
+  "rank34_benchmark": {
+    "gpu": "NVIDIA A10",
+    "compute_capability": [
+      8,
+      6
+    ],
+    "torch": "2.8.0+cu128",
+    "warmup": 10,
+    "iterations": 30,
+    "records": [
+      {
+        "family": "rank3_paged_decode",
+        "variant": "paged_fp16",
+        "sequence": 128,
+        "batch": 1,
+        "query_heads": 8,
+        "kv_heads": 2,
+        "head_dim": 64,
+        "splits": 1,
+        "latency_us": 107.64906580249469,
+        "dense_sdpa_latency_us": 43.19893295566241,
+        "speedup_vs_dense_sdpa": 0.4012940812224058
+      },
+      {
+        "family": "rank3_paged_decode",
+        "variant": "paged_int8",
+        "sequence": 128,
+        "batch": 1,
+        "query_heads": 8,
+        "kv_heads": 2,
+        "head_dim": 64,
+        "splits": 1,
+        "latency_us": 115.96906830867131,
+        "dense_sdpa_latency_us": 43.19893295566241,
+        "speedup_vs_dense_sdpa": 0.3725039235521073
+      },
+      {
+        "family": "rank3_paged_decode",
+        "variant": "paged_fp16",
+        "sequence": 512,
+        "batch": 1,
+        "query_heads": 8,
+        "kv_heads": 2,
+        "head_dim": 64,
+        "splits": 2,
+        "latency_us": 207.22346802552542,
+        "dense_sdpa_latency_us": 60.26453301310539,
+        "speedup_vs_dense_sdpa": 0.29081905436348604
+      },
+      {
+        "family": "rank3_paged_decode",
+        "variant": "paged_int8",
+        "sequence": 512,
+        "batch": 1,
+        "query_heads": 8,
+        "kv_heads": 2,
+        "head_dim": 64,
+        "splits": 2,
+        "latency_us": 224.42666739225388,
+        "dense_sdpa_latency_us": 60.26453301310539,
+        "speedup_vs_dense_sdpa": 0.2685266136745451
+      },
+      {
+        "family": "rank3_paged_decode",
+        "variant": "paged_fp16",
+        "sequence": 2048,
+        "batch": 1,
+        "query_heads": 8,
+        "kv_heads": 2,
+        "head_dim": 64,
+        "splits": 8,
+        "latency_us": 207.39626735448837,
+        "dense_sdpa_latency_us": 47.19253356258074,
+        "speedup_vs_dense_sdpa": 0.2275476514816814
+      },
+      {
+        "family": "rank3_paged_decode",
+        "variant": "paged_int8",
+        "sequence": 2048,
+        "batch": 1,
+        "query_heads": 8,
+        "kv_heads": 2,
+        "head_dim": 64,
+        "splits": 8,
+        "latency_us": 224.69973216454187,
+        "dense_sdpa_latency_us": 47.19253356258074,
+        "speedup_vs_dense_sdpa": 0.2100248767898969
+      },
+      {
+        "family": "rank4_dspark_block",
+        "variant": "cuda_graph_replay",
+        "batch": 1,
+        "proposal_length": 7,
+        "vocab": 4096,
+        "rank": 64,
+        "latency_us": 87.5861329336961,
+        "eager_latency_us": 501.1669298013051,
+        "speedup_vs_eager": 5.72198946356834
+      }
+    ]
+  }
+}

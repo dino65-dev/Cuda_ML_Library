@@ -37,6 +37,20 @@ torch::Tensor bias_swiglu_cuda(
     const std::optional<torch::Tensor>& gate_bias,
     const std::optional<torch::Tensor>& up_bias);
 
+void paged_kv_append_cuda(
+    torch::Tensor key_cache, torch::Tensor value_cache,
+    torch::Tensor key_scales, torch::Tensor value_scales,
+    const torch::Tensor& block_tables, const torch::Tensor& positions,
+    const torch::Tensor& key, const torch::Tensor& value);
+
+void paged_decode_attention_cuda(
+    const torch::Tensor& query, const torch::Tensor& key_cache,
+    const torch::Tensor& value_cache, const torch::Tensor& key_scales,
+    const torch::Tensor& value_scales, const torch::Tensor& block_tables,
+    const torch::Tensor& sequence_lengths, torch::Tensor partial_output,
+    torch::Tensor partial_max, torch::Tensor partial_sum, torch::Tensor output,
+    int64_t num_splits, double scale);
+
 namespace {
 
 void check_cuda(const torch::Tensor& tensor, const char* name) {
@@ -181,10 +195,109 @@ torch::Tensor bias_swiglu(
   return bias_swiglu_cuda(gate, up, gate_bias, up_bias);
 }
 
+void paged_kv_append(
+    torch::Tensor key_cache, torch::Tensor value_cache,
+    torch::Tensor key_scales, torch::Tensor value_scales,
+    const torch::Tensor& block_tables, const torch::Tensor& positions,
+    const torch::Tensor& key, const torch::Tensor& value) {
+  for (const auto& item : std::vector<std::pair<const torch::Tensor*, const char*>>{
+           {&key_cache, "key_cache"}, {&value_cache, "value_cache"},
+           {&block_tables, "block_tables"}, {&positions, "positions"},
+           {&key, "key"}, {&value, "value"}}) {
+    check_cuda(*item.first, item.second);
+    check_same_device(key_cache, *item.first);
+  }
+  TORCH_CHECK(key_cache.dim() == 4 && value_cache.sizes() == key_cache.sizes(),
+              "cache must have shape [blocks, block_size, kv_heads, head_dim]");
+  TORCH_CHECK(key.dim() == 3 && value.sizes() == key.sizes(),
+              "updates must have shape [batch, kv_heads, head_dim]");
+  TORCH_CHECK(key.size(1) == key_cache.size(2) && key.size(2) == key_cache.size(3),
+              "update and cache KV dimensions differ");
+  TORCH_CHECK(block_tables.dim() == 2 && block_tables.size(0) == key.size(0),
+              "block_tables must have shape [batch, max_blocks]");
+  TORCH_CHECK(positions.dim() == 1 && positions.size(0) == key.size(0),
+              "positions must have shape [batch]");
+  TORCH_CHECK(block_tables.scalar_type() == torch::kLong && positions.scalar_type() == torch::kLong,
+              "block_tables and positions must use int64");
+  TORCH_CHECK(key.scalar_type() == value.scalar_type(), "key/value update dtypes differ");
+  const bool quantized = key_cache.scalar_type() == torch::kInt8;
+  if (quantized) {
+    check_cuda(key_scales, "key_scales"); check_cuda(value_scales, "value_scales");
+    check_same_device(key_cache, key_scales); check_same_device(key_cache, value_scales);
+    TORCH_CHECK(key_scales.sizes() == key_cache.sizes().slice(0, 3) &&
+                value_scales.sizes() == key_scales.sizes(),
+                "quantized scale shape must be [blocks, block_size, kv_heads]");
+    TORCH_CHECK(key_scales.scalar_type() == torch::kFloat && value_scales.scalar_type() == torch::kFloat,
+                "quantized scales must use float32");
+    check_floating(key, "key");
+  } else {
+    check_floating(key_cache, "key_cache");
+    TORCH_CHECK(key.scalar_type() == key_cache.scalar_type() &&
+                value_cache.scalar_type() == key_cache.scalar_type(),
+                "floating cache/update dtypes must match");
+  }
+  paged_kv_append_cuda(key_cache, value_cache, key_scales, value_scales,
+                       block_tables, positions, key, value);
+}
+
+void paged_decode_attention(
+    const torch::Tensor& query, const torch::Tensor& key_cache,
+    const torch::Tensor& value_cache, const torch::Tensor& key_scales,
+    const torch::Tensor& value_scales, const torch::Tensor& block_tables,
+    const torch::Tensor& sequence_lengths, torch::Tensor partial_output,
+    torch::Tensor partial_max, torch::Tensor partial_sum, torch::Tensor output,
+    int64_t num_splits, double scale) {
+  for (const auto& item : std::vector<std::pair<const torch::Tensor*, const char*>>{
+           {&query, "query"}, {&key_cache, "key_cache"}, {&value_cache, "value_cache"},
+           {&block_tables, "block_tables"}, {&sequence_lengths, "sequence_lengths"},
+           {&partial_output, "partial_output"}, {&partial_max, "partial_max"},
+           {&partial_sum, "partial_sum"}, {&output, "output"}}) {
+    check_cuda(*item.first, item.second); check_same_device(query, *item.first);
+  }
+  check_floating(query, "query");
+  TORCH_CHECK(query.dim() == 3, "query must have shape [batch, query_heads, head_dim]");
+  TORCH_CHECK(key_cache.dim() == 4 && value_cache.sizes() == key_cache.sizes(),
+              "cache must have shape [blocks, block_size, kv_heads, head_dim]");
+  TORCH_CHECK(query.size(2) == key_cache.size(3), "query/cache head_dim differs");
+  TORCH_CHECK(query.size(1) % key_cache.size(2) == 0,
+              "query_heads must be divisible by kv_heads");
+  TORCH_CHECK(query.size(2) > 0 && query.size(2) <= 256,
+              "head_dim must be in [1, 256]");
+  TORCH_CHECK(block_tables.dim() == 2 && block_tables.size(0) == query.size(0),
+              "block_tables must have shape [batch, max_blocks]");
+  TORCH_CHECK(sequence_lengths.dim() == 1 && sequence_lengths.size(0) == query.size(0),
+              "sequence_lengths must have shape [batch]");
+  TORCH_CHECK(block_tables.scalar_type() == torch::kLong && sequence_lengths.scalar_type() == torch::kLong,
+              "block_tables and sequence_lengths must use int64");
+  TORCH_CHECK(num_splits > 0 && num_splits <= 64, "num_splits must be in [1, 64]");
+  TORCH_CHECK(partial_output.sizes() == torch::IntArrayRef({query.size(0), query.size(1), num_splits, query.size(2)}),
+              "partial_output has the wrong shape");
+  TORCH_CHECK(partial_max.sizes() == torch::IntArrayRef({query.size(0), query.size(1), num_splits}) &&
+              partial_sum.sizes() == partial_max.sizes(), "partial scalar workspace has the wrong shape");
+  TORCH_CHECK(output.sizes() == query.sizes() && output.scalar_type() == query.scalar_type(),
+              "output must match query");
+  TORCH_CHECK(partial_output.scalar_type() == torch::kFloat && partial_max.scalar_type() == torch::kFloat &&
+              partial_sum.scalar_type() == torch::kFloat, "partial workspace must use float32");
+  const bool quantized = key_cache.scalar_type() == torch::kInt8;
+  if (quantized) {
+    check_cuda(key_scales, "key_scales"); check_cuda(value_scales, "value_scales");
+    TORCH_CHECK(key_scales.sizes() == key_cache.sizes().slice(0, 3) && value_scales.sizes() == key_scales.sizes(),
+                "quantized scale shape must be [blocks, block_size, kv_heads]");
+  } else {
+    TORCH_CHECK(key_cache.scalar_type() == query.scalar_type() && value_cache.scalar_type() == query.scalar_type(),
+                "floating query/cache dtypes must match");
+  }
+  paged_decode_attention_cuda(query, key_cache, value_cache, key_scales, value_scales,
+      block_tables, sequence_lengths, partial_output, partial_max, partial_sum,
+      output, num_splits, scale);
+}
+
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, module) {
   module.def("residual_rms_norm", &residual_rms_norm);
   module.def("rms_norm_quantize", &rms_norm_quantize);
   module.def("rope_qk_norm", &rope_qk_norm);
   module.def("kv_cache_append", &kv_cache_append);
   module.def("bias_swiglu", &bias_swiglu);
+  module.def("paged_kv_append", &paged_kv_append);
+  module.def("paged_decode_attention", &paged_decode_attention);
 }

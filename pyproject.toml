@@ -40,3 +40,9 @@ Issues = "https://github.com/dino65-dev/Cuda-ML-Library/issues"
 
 [tool.setuptools.dynamic]
 version = {file = "VERSION"}
+
+[tool.pytest.ini_options]
+markers = [
+  "cuda: requires a CUDA-capable GPU",
+  "multigpu: requires at least two CUDA devices",
+]

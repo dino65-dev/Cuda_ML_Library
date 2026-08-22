@@ -97,6 +97,51 @@ __global__ __launch_bounds__(kThreads, 2) void markov_logits_kernel(
     }
 }
 
+// One request per CTA fuses low-rank correction, corrected-logit materialization,
+// and stable greedy selection. It is dispatched for the Pascal batch-1/2
+// serving crossover; newer GPUs keep the higher-throughput GEMM path.
+template <typename scalar_t>
+__global__ void markov_greedy_kernel(
+    const scalar_t* base, const int64_t* previous_ids,
+    const scalar_t* embedding, const scalar_t* projection_t,
+    scalar_t* output, int64_t* tokens, int vocab_size, int rank) {
+    extern __shared__ unsigned char shared_bytes[];
+    float* latent = reinterpret_cast<float*>(shared_bytes);
+    float* maxima = latent + rank;
+    int* indices = reinterpret_cast<int*>(maxima + blockDim.x);
+    const int request = blockIdx.x;
+    const int64_t previous = previous_ids[request];
+    for (int r = threadIdx.x; r < rank; r += blockDim.x)
+        latent[r] = previous >= 0 && previous < vocab_size
+            ? as_float(embedding[previous * rank + r]) : 0.0f;
+    __syncthreads();
+    float best = -INFINITY;
+    int best_index = 0;
+    for (int vocab = threadIdx.x; vocab < vocab_size; vocab += blockDim.x) {
+        float corrected = as_float(base[static_cast<int64_t>(request) * vocab_size + vocab]);
+        for (int r = 0; r < rank; ++r)
+            corrected = fmaf(latent[r], as_float(projection_t[static_cast<int64_t>(r) * vocab_size + vocab]), corrected);
+        output[static_cast<int64_t>(request) * vocab_size + vocab] = static_cast<scalar_t>(corrected);
+        if (corrected > best || (corrected == best && vocab < best_index)) {
+            best = corrected; best_index = vocab;
+        }
+    }
+    maxima[threadIdx.x] = best; indices[threadIdx.x] = best_index;
+    __syncthreads();
+    for (int stride = blockDim.x / 2; stride; stride >>= 1) {
+        if (threadIdx.x < stride) {
+            const float other = maxima[threadIdx.x + stride];
+            const int other_index = indices[threadIdx.x + stride];
+            if (other > maxima[threadIdx.x] ||
+                (other == maxima[threadIdx.x] && other_index < indices[threadIdx.x])) {
+                maxima[threadIdx.x] = other; indices[threadIdx.x] = other_index;
+            }
+        }
+        __syncthreads();
+    }
+    if (threadIdx.x == 0) tokens[request] = indices[0];
+}
+
 // One warp handles one request. DSpark blocks are deliberately short (7 in
 // the paper); keeping the full calibrated prefix scan inside a warp removes
 // shared-memory traffic and all inter-CTA synchronization.
@@ -222,8 +267,8 @@ __global__ void schedule_small_kernel(
     __syncthreads();
 
     if (tid == 0) {
-        float expected = static_cast<float>(request_count);
-        float best_throughput = expected * step_curve[request_count];
+        double expected = static_cast<double>(request_count);
+        double best_throughput = expected * static_cast<double>(step_curve[request_count]);
         int selected = 0;
 
         for (int order = 0; order < candidate_count; ++order) {
@@ -231,9 +276,9 @@ __global__ void schedule_small_kernel(
             const uint32_t probability_bits =
                 static_cast<uint32_t>(sorted_keys[order] >> 32);
             const float probability = __uint_as_float(probability_bits);
-            const float candidate_expected = expected + probability;
-            const float candidate_throughput =
-                candidate_expected * step_curve[request_count + selected + 1];
+            const double candidate_expected = expected + static_cast<double>(probability);
+            const double candidate_throughput = candidate_expected *
+                static_cast<double>(step_curve[request_count + selected + 1]);
             if (!(candidate_throughput > best_throughput)) {
                 break;
             }
@@ -247,20 +292,20 @@ __global__ void schedule_small_kernel(
         }
 
         selected_count[0] = selected;
-        expected_tokens[0] = expected;
-        expected_throughput[0] = best_throughput;
+        expected_tokens[0] = static_cast<float>(expected);
+        expected_throughput[0] = static_cast<float>(best_throughput);
     }
 }
 
 __global__ __launch_bounds__(kThreads) void unpack_probabilities_kernel(
     const uint64_t* __restrict__ sorted_keys,
-    float* __restrict__ sorted_probabilities,
+    double* __restrict__ sorted_probabilities,
     int candidate_count) {
     for (int index = blockIdx.x * blockDim.x + threadIdx.x;
          index < candidate_count;
          index += blockDim.x * gridDim.x) {
         const uint32_t bits = static_cast<uint32_t>(sorted_keys[index] >> 32);
-        sorted_probabilities[index] = __uint_as_float(bits);
+        sorted_probabilities[index] = static_cast<double>(__uint_as_float(bits));
     }
 }
 
@@ -268,7 +313,7 @@ __global__ __launch_bounds__(kThreads) void unpack_probabilities_kernel(
 // throughput. atomicMin finds the first drop, which is equivalent to the
 // paper's causal early break but does not serialize the evaluation on one lane.
 __global__ __launch_bounds__(kThreads) void find_first_drop_kernel(
-    const float* __restrict__ prefix_probability_sums,
+    const double* __restrict__ prefix_probability_sums,
     const float* __restrict__ step_curve,
     int32_t* __restrict__ first_drop,
     int request_count,
@@ -276,18 +321,19 @@ __global__ __launch_bounds__(kThreads) void find_first_drop_kernel(
     for (int index = blockIdx.x * blockDim.x + threadIdx.x;
          index < candidate_count;
          index += blockDim.x * gridDim.x) {
-        const float current_expected =
-            static_cast<float>(request_count) + prefix_probability_sums[index];
+        const double current_expected =
+            static_cast<double>(request_count) + prefix_probability_sums[index];
         const int current_batch = request_count + index + 1;
-        const float current_throughput = current_expected * step_curve[current_batch];
+        const double current_throughput =
+            current_expected * static_cast<double>(step_curve[current_batch]);
 
-        float previous_expected = static_cast<float>(request_count);
+        double previous_expected = static_cast<double>(request_count);
         if (index > 0) {
             previous_expected += prefix_probability_sums[index - 1];
         }
         const int previous_batch = request_count + index;
-        const float previous_throughput =
-            previous_expected * step_curve[previous_batch];
+        const double previous_throughput =
+            previous_expected * static_cast<double>(step_curve[previous_batch]);
 
         if (!(current_throughput > previous_throughput)) {
             atomicMin(first_drop, index);
@@ -313,7 +359,7 @@ __global__ __launch_bounds__(kThreads) void scatter_schedule_kernel(
 }
 
 __global__ void finalize_schedule_kernel(
-    const float* __restrict__ prefix_probability_sums,
+    const double* __restrict__ prefix_probability_sums,
     const float* __restrict__ step_curve,
     const int32_t* __restrict__ selected_count,
     float* __restrict__ expected_tokens,
@@ -323,12 +369,13 @@ __global__ void finalize_schedule_kernel(
         return;
     }
     const int count = *selected_count;
-    float expected = static_cast<float>(request_count);
+    double expected = static_cast<double>(request_count);
     if (count > 0) {
         expected += prefix_probability_sums[count - 1];
     }
-    expected_tokens[0] = expected;
-    expected_throughput[0] = expected * step_curve[request_count + count];
+    expected_tokens[0] = static_cast<float>(expected);
+    expected_throughput[0] = static_cast<float>(
+        expected * static_cast<double>(step_curve[request_count + count]));
 }
 
 inline int launch_blocks(int elements) {
@@ -416,6 +463,37 @@ torch::Tensor dspark_markov_logits_cuda(
         });
     C10_CUDA_KERNEL_LAUNCH_CHECK();
     return output;
+}
+
+std::vector<torch::Tensor> dspark_markov_greedy_cuda(
+    const torch::Tensor& base_logits,
+    const torch::Tensor& previous_token_ids,
+    const torch::Tensor& token_embedding,
+    const torch::Tensor& projection_t) {
+    check_cuda_contiguous(base_logits, "base_logits");
+    check_cuda_contiguous(previous_token_ids, "previous_token_ids");
+    check_cuda_contiguous(token_embedding, "token_embedding");
+    check_cuda_contiguous(projection_t, "projection_t");
+    const int64_t batch = base_logits.size(0), vocab = base_logits.size(1), rank = token_embedding.size(1);
+    TORCH_CHECK(base_logits.dim() == 2 && previous_token_ids.sizes() == torch::IntArrayRef({batch}),
+                "base logits/previous ids have invalid shapes");
+    TORCH_CHECK(token_embedding.sizes() == torch::IntArrayRef({vocab, rank}) &&
+                projection_t.sizes() == torch::IntArrayRef({rank, vocab}), "Markov weights have invalid shapes");
+    TORCH_CHECK(previous_token_ids.scalar_type() == torch::kInt64, "previous ids must use int64");
+    TORCH_CHECK(rank <= 4096, "rank > 4096 is not supported");
+    c10::cuda::CUDAGuard guard(base_logits.device());
+    auto output = torch::empty_like(base_logits);
+    auto tokens = torch::empty({batch}, previous_token_ids.options());
+    const auto stream = at::cuda::getCurrentCUDAStream();
+    const size_t shared = static_cast<size_t>(rank + kThreads) * sizeof(float) + kThreads * sizeof(int);
+    AT_DISPATCH_FLOATING_TYPES_AND2(torch::kFloat16, torch::kBFloat16, base_logits.scalar_type(), "dspark_markov_greedy", [&] {
+        markov_greedy_kernel<scalar_t><<<batch, kThreads, shared, stream>>>(
+            base_logits.data_ptr<scalar_t>(), previous_token_ids.data_ptr<int64_t>(),
+            token_embedding.data_ptr<scalar_t>(), projection_t.data_ptr<scalar_t>(),
+            output.data_ptr<scalar_t>(), tokens.data_ptr<int64_t>(), vocab, rank);
+    });
+    C10_CUDA_KERNEL_LAUNCH_CHECK();
+    return {tokens, output};
 }
 
 std::vector<torch::Tensor> dspark_schedule_cuda(
@@ -562,20 +640,21 @@ std::vector<torch::Tensor> dspark_schedule_cuda(
         64,
         stream));
 
-    auto sorted_probabilities = torch::empty({candidate_count}, float_options);
+    const auto double_options = confidence_logits.options().dtype(torch::kFloat64);
+    auto sorted_probabilities = torch::empty({candidate_count}, double_options);
     unpack_probabilities_kernel<<<launch_blocks(candidate_count), kThreads, 0, stream>>>(
         reinterpret_cast<uint64_t*>(keys_out.data_ptr<int64_t>()),
-        sorted_probabilities.data_ptr<float>(),
+        sorted_probabilities.data_ptr<double>(),
         candidate_count);
     C10_CUDA_KERNEL_LAUNCH_CHECK();
 
-    auto prefix_probability_sums = torch::empty({candidate_count}, float_options);
+    auto prefix_probability_sums = torch::empty({candidate_count}, double_options);
     size_t scan_storage_bytes = 0;
     C10_CUDA_CHECK(cub::DeviceScan::InclusiveSum(
         nullptr,
         scan_storage_bytes,
-        sorted_probabilities.data_ptr<float>(),
-        prefix_probability_sums.data_ptr<float>(),
+        sorted_probabilities.data_ptr<double>(),
+        prefix_probability_sums.data_ptr<double>(),
         candidate_count,
         stream));
     auto scan_storage = torch::empty(
@@ -583,8 +662,8 @@ std::vector<torch::Tensor> dspark_schedule_cuda(
     C10_CUDA_CHECK(cub::DeviceScan::InclusiveSum(
         scan_storage.data_ptr(),
         scan_storage_bytes,
-        sorted_probabilities.data_ptr<float>(),
-        prefix_probability_sums.data_ptr<float>(),
+        sorted_probabilities.data_ptr<double>(),
+        prefix_probability_sums.data_ptr<double>(),
         candidate_count,
         stream));
 
@@ -592,7 +671,7 @@ std::vector<torch::Tensor> dspark_schedule_cuda(
     // every extension improves throughput.
     auto selected_count = torch::full({1}, candidate_count, int_options);
     find_first_drop_kernel<<<launch_blocks(candidate_count), kThreads, 0, stream>>>(
-        prefix_probability_sums.data_ptr<float>(),
+        prefix_probability_sums.data_ptr<double>(),
         step_curve.data_ptr<float>(),
         selected_count.data_ptr<int32_t>(),
         request_count,
@@ -611,7 +690,7 @@ std::vector<torch::Tensor> dspark_schedule_cuda(
     auto expected_tokens = torch::empty({1}, float_options);
     auto expected_throughput = torch::empty({1}, float_options);
     finalize_schedule_kernel<<<1, 1, 0, stream>>>(
-        prefix_probability_sums.data_ptr<float>(),
+        prefix_probability_sums.data_ptr<double>(),
         step_curve.data_ptr<float>(),
         selected_count.data_ptr<int32_t>(),
         expected_tokens.data_ptr<float>(),

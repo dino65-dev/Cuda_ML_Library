@@ -18,6 +18,7 @@ setup(
             sources=[
                 str(ROOT / "csrc" / "decode_ops.cpp"),
                 str(ROOT / "csrc" / "decode_ops_cuda.cu"),
+                str(ROOT / "csrc" / "paged_attention_cuda.cu"),
             ],
             extra_compile_args={
                 "cxx": ["-O3"],

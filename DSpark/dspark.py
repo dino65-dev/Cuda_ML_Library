@@ -137,6 +137,28 @@ def markov_logits_raw_cuda(
     )
 
 
+@torch.no_grad()
+def markov_greedy(
+    base_logits: torch.Tensor,
+    previous_token_ids: torch.Tensor,
+    token_embedding: torch.Tensor,
+    projection_t: torch.Tensor,
+) -> DraftBlockResult:
+    """Correct logits and select the stable greedy token in one dispatch contract."""
+    _check_markov_inputs(base_logits, previous_token_ids, token_embedding, projection_t)
+    if base_logits.is_cuda and _dspark_cuda is not None:
+        tokens, corrected = _dspark_cuda.markov_greedy(
+            base_logits.contiguous(), previous_token_ids.contiguous(),
+            token_embedding.contiguous(), projection_t.contiguous(),
+        )
+    else:
+        corrected = markov_logits_reference(
+            base_logits, previous_token_ids, token_embedding, projection_t
+        )
+        tokens = corrected.argmax(dim=-1)
+    return DraftBlockResult(tokens, corrected)
+
+
 def _temperatures_tensor(
     temperatures: float | Sequence[float] | torch.Tensor | None,
     *,
@@ -362,11 +384,14 @@ class DSparkMarkovHead(nn.Module):
         sampled = []
         corrected = []
         for position in range(proposal_length):
-            position_logits = self(base_logits[:, position, :], previous)
-            corrected.append(position_logits)
             if temperature <= 0.0:
-                next_tokens = position_logits.argmax(dim=-1)
+                step = markov_greedy(
+                    base_logits[:, position, :], previous,
+                    self.token_embedding, self.projection_t,
+                )
+                next_tokens, position_logits = step
             else:
+                position_logits = self(base_logits[:, position, :], previous)
                 probabilities = torch.softmax(
                     position_logits.float() / float(temperature),
                     dim=-1,
@@ -376,9 +401,77 @@ class DSparkMarkovHead(nn.Module):
                     num_samples=1,
                     generator=generator,
                 ).squeeze(-1)
+            corrected.append(position_logits)
             sampled.append(next_tokens)
             previous = next_tokens
         return DraftBlockResult(
             torch.stack(sampled, dim=1),
             torch.stack(corrected, dim=1),
         )
+
+
+class DSparkGreedyGraph:
+    """Allocation-free CUDA Graph replay for a fixed-shape greedy draft block."""
+
+    def __init__(self, head: DSparkMarkovHead, *, batch: int, proposal_length: int, dtype: torch.dtype) -> None:
+        if not next(head.parameters()).is_cuda:
+            raise ValueError("head must be on CUDA before graph capture")
+        if min(batch, proposal_length) < 1:
+            raise ValueError("batch and proposal_length must be positive")
+        device = next(head.parameters()).device
+        self.head = head
+        # Warmup executes real kernels before user inputs are copied in. Keep
+        # every static capture input valid on both guarded Pascal kernels and
+        # modern index_select/GEMM dispatch.
+        self.base_logits = torch.zeros(batch, proposal_length, head.vocab_size, device=device, dtype=dtype)
+        self.previous_ids = torch.zeros(batch, device=device, dtype=torch.long)
+        side_stream = torch.cuda.Stream(device=device)
+        side_stream.wait_stream(torch.cuda.current_stream(device))
+        with torch.cuda.stream(side_stream):
+            for _ in range(3):
+                self.result = head.sample_block(self.base_logits, self.previous_ids)
+        torch.cuda.current_stream(device).wait_stream(side_stream)
+        self.graph = torch.cuda.CUDAGraph()
+        with torch.cuda.graph(self.graph):
+            self.result = head.sample_block(self.base_logits, self.previous_ids)
+
+    @torch.no_grad()
+    def replay(self, base_logits: torch.Tensor, previous_ids: torch.Tensor) -> DraftBlockResult:
+        if base_logits.shape != self.base_logits.shape or previous_ids.shape != self.previous_ids.shape:
+            raise ValueError("graph replay inputs must match captured shapes")
+        self.base_logits.copy_(base_logits)
+        self.previous_ids.copy_(previous_ids)
+        self.graph.replay()
+        return self.result
+
+
+class DSparkSchedulerGraph:
+    """Fixed-shape scheduler replay with allocations cached in a CUDA Graph pool."""
+
+    def __init__(self, scheduler: DSparkScheduler, *, requests: int, device: torch.device | str, dtype: torch.dtype) -> None:
+        if requests < 1:
+            raise ValueError("requests must be positive")
+        device = torch.device(device)
+        if device.type != "cuda":
+            raise ValueError("scheduler graph requires CUDA")
+        self.scheduler = scheduler.to(device)
+        self.confidence = torch.zeros(requests, scheduler.proposal_length, device=device, dtype=dtype)
+        self.curve = torch.ones(requests * (scheduler.proposal_length + 1) + 1, device=device, dtype=torch.float32)
+        side_stream = torch.cuda.Stream(device=device)
+        side_stream.wait_stream(torch.cuda.current_stream(device))
+        with torch.cuda.stream(side_stream):
+            for _ in range(3):
+                self.result = self.scheduler(self.confidence, self.curve)
+        torch.cuda.current_stream(device).wait_stream(side_stream)
+        self.graph = torch.cuda.CUDAGraph()
+        with torch.cuda.graph(self.graph):
+            self.result = self.scheduler(self.confidence, self.curve)
+
+    @torch.no_grad()
+    def replay(self, confidence_logits: torch.Tensor, step_curve: torch.Tensor) -> ScheduleResult:
+        if confidence_logits.shape != self.confidence.shape or step_curve.shape != self.curve.shape:
+            raise ValueError("scheduler replay inputs must match captured shapes")
+        self.confidence.copy_(confidence_logits)
+        self.curve.copy_(step_curve)
+        self.graph.replay()
+        return self.result

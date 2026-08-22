@@ -64,6 +64,19 @@ torch::Tensor dspark_markov_logits(
     return at::addmm(base_logits, latent, projection_t);
 }
 
+std::vector<torch::Tensor> dspark_markov_greedy(
+    const torch::Tensor& base_logits,
+    const torch::Tensor& previous_token_ids,
+    const torch::Tensor& token_embedding,
+    const torch::Tensor& projection_t) {
+    // Reuse the complete contract validation and architecture dispatch above.
+    const cudaDeviceProp* properties = at::cuda::getCurrentDeviceProperties();
+    if (properties->major < 7 && base_logits.size(0) <= 2)
+        return dspark_markov_greedy_cuda(base_logits, previous_token_ids, token_embedding, projection_t);
+    auto corrected = dspark_markov_logits(base_logits, previous_token_ids, token_embedding, projection_t);
+    return {at::argmax(corrected, -1), corrected};
+}
+
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, module) {
     module.def(
         "markov_logits",
@@ -73,6 +86,10 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, module) {
         "markov_logits_raw",
         &dspark_markov_logits_cuda,
         "Experimental scalar DSpark Markov correction (CUDA)");
+    module.def(
+        "markov_greedy",
+        &dspark_markov_greedy,
+        "Architecture-dispatched DSpark correction and greedy selection (CUDA)");
     module.def(
         "schedule",
         &dspark_schedule_cuda,

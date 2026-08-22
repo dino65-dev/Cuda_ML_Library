@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "profiler": "NVIDIA Nsight Systems 2022.4.2.50; CUDA 11.8 container",
+  "gpu": "NVIDIA GeForce GTX 1050 Ti (SM 6.1)",
+  "table_counts": {
+    "cuda_kernel_activities": 244,
+    "cuda_runtime_activities": 533,
+    "nvtx_events": 60
+  },
+  "files": [
+    {"name":"rank34_gtx1050ti_nsys.nsys-rep","bytes":305283,"sha256":"3e1b886ad4bca119f6f001ee665f8245464c51a34dce3107150263668af9c67b"},
+    {"name":"rank34_gtx1050ti_nsys.qdstrm","bytes":13977010,"sha256":"f4ca138e4ca186e43b6f62f9fff6bcf33c85bc454b45b9b8effe0ccaf7128e39"},
+    {"name":"rank34_gtx1050ti_nsys.sqlite","bytes":847872,"sha256":"6c3fc9fe0df202407e9f3871f14e4eeaaff808694531b3916721c49bc064afef"},
+    {"name":"rank34_gtx1050ti_stats_cudaapisum.csv","bytes":1515,"sha256":"326ec25d05b5c61b24f5f142c396c26605331a9c0d3c494831c9407f39979806"},
+    {"name":"rank34_gtx1050ti_stats_gpukernsum.csv","bytes":12237,"sha256":"06397631745810ec0cb86791c2a7a270d29d87b005523e44bf9b2d4d1207628e"},
+    {"name":"rank34_gtx1050ti_stats_kernexecsum.csv","bytes":12625,"sha256":"56c711b0718f1e665b9df901529ae92e499a1ff5be5d65be98920b9b6e6b71b0"},
+    {"name":"rank34_gtx1050ti_stats_nvtxgpuproj.csv","bytes":6365,"sha256":"f38ae41019ffcc9ef9c6e3d7d22d747e02c11c9f469c0bd70d8b070458a23a0c"},
+    {"name":"rank34_gtx1050ti_stats_nvtxkernsum.csv","bytes":11532,"sha256":"bdafb4fda8890902cb02d5269d7e4b003bcca6fdbbbea24b353858fe7a5daa39"},
+    {"name":"rank34_gtx1050ti_stats_nvtxppsum.csv","bytes":505,"sha256":"367559255e0c189275a21df485f4f269fdcf89647b03959f0cdfaa5c38c27b80"}
+  ]
+}

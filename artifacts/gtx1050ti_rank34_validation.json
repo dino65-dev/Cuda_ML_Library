@@ -1,0 +1,16 @@
+{
+  "gpu": "NVIDIA GeForce GTX 1050 Ti",
+  "torch": "2.7.1+cu118",
+  "test_suite": "60 passed, 2 skipped",
+  "skips": ["multi-GPU device guard", "torch.compile on pre-Volta (Triton requires compute capability 7.0+)"] ,
+  "rank3": {
+    "floating_max_abs_error": 3.5762786865234375e-7,
+    "int8_cache_vs_dequantized_reference_max_abs_error": 3.5762786865234375e-7,
+    "cuda_graph": "pass"
+  },
+  "rank4": {
+    "markov_greedy_max_abs_error": 4.76837158203125e-7,
+    "greedy_graph": "pass",
+    "speculative_verification": "pass"
+  }
+}
