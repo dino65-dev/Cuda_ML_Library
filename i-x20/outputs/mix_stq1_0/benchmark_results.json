@@ -1,0 +1,121 @@
+{
+  "schema_version": 1,
+  "metadata": {
+    "python": "3.10.12",
+    "torch": "2.7.1+cu118",
+    "cuda_runtime": "11.8",
+    "gpu": "NVIDIA GeForce GTX 1050 Ti",
+    "compute_capability": "6.1",
+    "multiprocessors": 6,
+    "memory_bytes": 4218880000,
+    "driver": "NVIDIA GeForce GTX 1050 Ti, 580.173.02, 4096 MiB"
+  },
+  "method": "Device-only CUDA Event timings queued behind an untimed GPU lead-in. Warm cache, batch=1 GEMV. The packed kernel reads 42-byte STQ blocks directly; no dense dequantized STQ matrix is materialized.",
+  "results": [
+    {
+      "shape": {
+        "batch": 1,
+        "out_features": 4096,
+        "in_features": 4096
+      },
+      "compression": {
+        "dense_fp32_bytes": 67108864,
+        "packed_stq_bytes": 2752512,
+        "bits_per_weight": 1.3125,
+        "storage_reduction_vs_fp32": 24.38095238095238
+      },
+      "distortion": {
+        "amax_weighted_error": 13625884.0,
+        "weighted_stq_weighted_error": 243572.71875,
+        "weighted_error_reduction_vs_amax": 0.9821242630019454
+      },
+      "correctness": {
+        "direct_vs_materialized_max_abs_error": 7.62939453125e-06
+      },
+      "timing_us": {
+        "packed_stq_direct": {
+          "first_call_us": 617.381,
+          "mean_us": 598.0675905942917,
+          "p20_us": 538.6239886283875,
+          "p50_us": 538.6239886283875,
+          "p80_us": 539.6479964256287,
+          "min_us": 538.6239886283875
+        },
+        "dense_fp32_cublas": {
+          "first_call_us": 783.939,
+          "mean_us": 736.6015993058681,
+          "p20_us": 664.57599401474,
+          "p50_us": 667.6480174064636,
+          "p80_us": 675.8400201797485,
+          "min_us": 662.5279784202576
+        },
+        "dense_materialized_stq_cublas": {
+          "first_call_us": 729.14,
+          "mean_us": 732.5951993465424,
+          "p20_us": 664.57599401474,
+          "p50_us": 667.6480174064636,
+          "p80_us": 676.8640279769897,
+          "min_us": 662.5279784202576
+        }
+      },
+      "packed_effective_weight_read_gbps_at_p50": 5.110266267585492,
+      "direct_speedup_vs_dense_fp32_p50": 1.2395437847219495,
+      "direct_speedup_vs_dense_materialized_stq_p50": 1.2395437847219495
+    },
+    {
+      "shape": {
+        "batch": 1,
+        "out_features": 14336,
+        "in_features": 4096
+      },
+      "compression": {
+        "dense_fp32_bytes": 234881024,
+        "packed_stq_bytes": 9633792,
+        "bits_per_weight": 1.3125,
+        "storage_reduction_vs_fp32": 24.38095238095238
+      },
+      "distortion": {
+        "amax_weighted_error": 47350740.0,
+        "weighted_stq_weighted_error": 866862.0,
+        "weighted_error_reduction_vs_amax": 0.9816927465125149
+      },
+      "correctness": {
+        "direct_vs_materialized_max_abs_error": 7.62939453125e-06
+      },
+      "timing_us": {
+        "packed_stq_direct": {
+          "first_call_us": 2004.613,
+          "mean_us": 1894.66882199049,
+          "p20_us": 1727.4880409240723,
+          "p50_us": 1728.5120487213135,
+          "p80_us": 2147.3278999328613,
+          "min_us": 1726.464033126831
+        },
+        "dense_fp32_cublas": {
+          "first_call_us": 2448.948,
+          "mean_us": 2571.199983358383,
+          "p20_us": 2337.791919708252,
+          "p50_us": 2375.6799697875977,
+          "p80_us": 2764.8000717163086,
+          "min_us": 2328.57608795166
+        },
+        "dense_materialized_stq_cublas": {
+          "first_call_us": 2481.48,
+          "mean_us": 2558.822774887085,
+          "p20_us": 2335.7439041137695,
+          "p50_us": 2371.583938598633,
+          "p80_us": 2757.63201713562,
+          "min_us": 2317.312002182007
+        }
+      },
+      "packed_effective_weight_read_gbps_at_p50": 5.573459558541526,
+      "direct_speedup_vs_dense_fp32_p50": 1.3744075267193157,
+      "direct_speedup_vs_dense_materialized_stq_p50": 1.3720378404958409
+    }
+  ],
+  "limitations": [
+    "Synthetic weights and calibration activations test the format/algorithm, not model quality on HY4 or any language benchmark.",
+    "The direct kernel is a readable experimental GEMV kernel. It is not a tuned llama.cpp MUL_MAT_ID or an end-to-end token/s benchmark.",
+    "The GTX 1050 Ti is Pascal (SM 6.1), so Tensor-Core-oriented results should not be generalized to modern GPUs."
+  ]
+}
